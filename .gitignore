@@ -1,0 +1,222 @@
+# ==============================================================================
+# SukaBaca - Comprehensive .gitignore for Security, Secrets & Build Artifacts
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Environment Variables, Secrets & API Keys
+# ------------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.env
+*.env.local
+*.secrets
+secrets/
+*secret*.json
+*secret*.yaml
+*secret*.yml
+*credentials*.json
+service-account*.json
+service_account*.json
+google-services*.json
+client_secret*.json
+firebase*.json
+*api_key*
+*apikey*
+*auth_token*
+*token*.txt
+*token*.json
+
+# ------------------------------------------------------------------------------
+# 2. SSH Keys, SSL Certificates & Java Keystores
+# ------------------------------------------------------------------------------
+id_rsa
+id_rsa.pub
+id_rsa*
+id_ed25519
+id_ed25519.pub
+id_ed25519*
+id_ecdsa*
+id_dsa*
+*.pem
+*.key
+*.cert
+*.crt
+*.csr
+*.pfx
+*.p12
+*.jks
+*.keystore
+*.cer
+known_hosts
+authorized_keys
+
+# ------------------------------------------------------------------------------
+# 3. Database Credentials, Dumps & Local Data
+# ------------------------------------------------------------------------------
+*.sql
+*.sql.gz
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.dump
+*.dmp
+*.bak
+dump.rdb
+.my.cnf
+.pgpass
+my.ini
+my.cnf
+
+# Sensitive Spring Boot profiles (keep base application.properties tracked)
+backend/src/main/resources/application-local.properties
+backend/src/main/resources/application-secret*.properties
+backend/src/main/resources/application-prod.properties
+backend/src/main/resources/application-*.properties
+!backend/src/main/resources/application.properties
+backend/src/main/resources/application-local.yml
+backend/src/main/resources/application-secret*.yml
+backend/src/main/resources/application-prod.yml
+
+# ------------------------------------------------------------------------------
+# 4. Cloud & Infrastructure Credentials
+# ------------------------------------------------------------------------------
+.aws/
+.gcloud/
+.azure/
+.docker/config.json
+kubeconfig*
+*.tfvars
+*.tfvars.json
+terraform.tfstate*
+
+# ------------------------------------------------------------------------------
+# 5. User Uploads, Dynamic Media & Storage
+# ------------------------------------------------------------------------------
+uploads/
+frontend/public/uploads/
+backend/uploads/
+user-data-dir/
+*storage_state*.json
+*session*.json
+*cookies*.json
+
+# ------------------------------------------------------------------------------
+# 6. Node.js & React Frontend Artifacts
+# ------------------------------------------------------------------------------
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+build/
+frontend/build/
+.vite/
+frontend/.vite/
+.npm/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.turbo/
+.cache/
+
+# ------------------------------------------------------------------------------
+# 7. Java, Spring Boot & Maven Artifacts
+# ------------------------------------------------------------------------------
+target/
+backend/target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
+.mvn/timing.properties
+
+# ------------------------------------------------------------------------------
+# 8. Python, Testing & Automation Artifacts
+# ------------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.eggs/
+venv/
+.venv/
+env/
+playwright-report/
+test-results/
+
+# ------------------------------------------------------------------------------
+# 9. IDE & Editor Specific Files
+# ------------------------------------------------------------------------------
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# ------------------------------------------------------------------------------
+# 10. AI, Graphify, Gemini Instructions, Plans & Tasks
+# ------------------------------------------------------------------------------
+graphify-out/
+.agents/
+.gemini/
+.antigravity/
+.claude/
+.cursor/
+.cursorrules
+.windsurfrules
+CLAUDE.md
+*prompt*
+*task*.md
+*plan*.md
+*architecture*.md
+implementation_plan.md
+task.md
+system_architecture.md
+
+# ------------------------------------------------------------------------------
+# 11. Shell & REPL History
+# ------------------------------------------------------------------------------
+.*_history
+.bash_history
+.zsh_history
+.ps_history
+.node_repl_history
+.python_history
+
+# ------------------------------------------------------------------------------
+# 12. Operating System Files
+# ------------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# ------------------------------------------------------------------------------
+# 13. General Logs & Temporary Files
+# ------------------------------------------------------------------------------
+*.log
+logs/
+*.tmp
+*.temp
