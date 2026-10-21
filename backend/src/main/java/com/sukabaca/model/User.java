@@ -18,12 +18,23 @@ public class User {
 
     private String name;
 
+    @Column(nullable = false)
+    private String role = "user"; // "admin" or "user"
+
     public User() {}
 
     public User(String username, String password, String name) {
         this.username = username;
         this.password = password;
         this.name = name;
+        this.role = "user";
+    }
+
+    public User(String username, String password, String name, String role) {
+        this.username = username;
+        this.password = password;
+        this.name = name;
+        this.role = role != null ? role.toLowerCase() : "user";
     }
 
     public Long getId() { return id; }
@@ -37,4 +48,7 @@ public class User {
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role != null ? role.toLowerCase() : "user"; }
 }

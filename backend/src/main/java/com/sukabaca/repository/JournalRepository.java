@@ -6,4 +6,6 @@ import java.util.List;
 
 public interface JournalRepository extends JpaRepository<Journal, Long> {
     List<Journal> findByTitleContainingIgnoreCase(String title);
+    List<Journal> findByUserId(Long userId);
 }
+

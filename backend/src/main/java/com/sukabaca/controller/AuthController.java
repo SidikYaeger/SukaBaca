@@ -28,9 +28,13 @@ public class AuthController {
 
         Optional<User> userOpt = userRepository.findByUsername(username);
         if (userOpt.isPresent() && userOpt.get().getPassword().equals(password)) {
+            User user = userOpt.get();
             return ResponseEntity.ok(Map.of(
                     "status", "success",
+                    "userId", user.getId(),
                     "username", username,
+                    "name", user.getName() != null ? user.getName() : username,
+                    "role", user.getRole(),
                     "message", "Login successful"
             ));
         }
@@ -40,6 +44,7 @@ public class AuthController {
             return ResponseEntity.ok(Map.of(
                     "status", "success",
                     "username", "Glen",
+                    "role", "user",
                     "message", "Demo user login successful"
             ));
         }
@@ -51,6 +56,7 @@ public class AuthController {
     public ResponseEntity<?> register(@RequestBody Map<String, String> request) {
         String username = request.get("username");
         String password = request.get("password");
+        String role = request.getOrDefault("role", "user");
 
         if (username == null || password == null) {
             return ResponseEntity.badRequest().body(Map.of("message", "All fields are required"));
@@ -60,7 +66,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("message", "Username already exists"));
         }
 
-        User newUser = new User(username, password, username);
+        User newUser = new User(username, password, username, role);
         userRepository.save(newUser);
 
         return ResponseEntity.ok(Map.of(
