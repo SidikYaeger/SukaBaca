@@ -2,6 +2,7 @@ package com.sukabaca.controller;
 
 import com.sukabaca.model.Journal;
 import com.sukabaca.model.Ringkasan;
+import com.sukabaca.model.SmartSearch;
 import com.sukabaca.model.User;
 import com.sukabaca.repository.JournalRepository;
 import com.sukabaca.repository.RingkasanRepository;
@@ -119,6 +120,15 @@ public class JournalController {
                     "download", j.getDownload()
             ));
         }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/smart-search")
+    public List<Journal> smartSearchJournals(@RequestBody(required = false) SmartSearch searchCriteria) {
+        List<Journal> allJournals = journalRepository.findAll();
+        if (searchCriteria == null) {
+            return allJournals;
+        }
+        return searchCriteria.applyFilterAndSort(allJournals);
     }
 
     @GetMapping("/{id}/ringkasan")

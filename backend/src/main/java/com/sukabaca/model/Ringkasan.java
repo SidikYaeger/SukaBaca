@@ -25,6 +25,9 @@ public class Ringkasan {
     @Column(name = "isi", columnDefinition = "LONGTEXT")
     private String isi;
 
+    @Column(name = "format_file", length = 50)
+    private String formatFile = "TXT";
+
     @Column(name = "tanggal_dibuat")
     private LocalDateTime tanggalDibuat = LocalDateTime.now();
 
@@ -34,6 +37,15 @@ public class Ringkasan {
         this.journal = journal;
         this.model = model;
         this.isi = isi;
+        this.formatFile = "TXT";
+        this.tanggalDibuat = LocalDateTime.now();
+    }
+
+    public Ringkasan(Journal journal, String model, String isi, String formatFile) {
+        this.journal = journal;
+        this.model = model;
+        this.isi = isi;
+        this.formatFile = formatFile != null ? formatFile : "TXT";
         this.tanggalDibuat = LocalDateTime.now();
     }
 
@@ -51,4 +63,25 @@ public class Ringkasan {
 
     public LocalDateTime getTanggalDibuat() { return tanggalDibuat; }
     public void setTanggalDibuat(LocalDateTime tanggalDibuat) { this.tanggalDibuat = tanggalDibuat; }
+
+    public String getFormatFile() { return formatFile; }
+    public void setFormatFile(String formatFile) { this.formatFile = formatFile; }
+
+    // --- Skeleton Methods from UML Diagram ---
+
+    private void buatRingkasan() {
+        // Skeleton logic for triggering AI model summarization
+    }
+
+    private void lihatRingkasan() {
+        // Skeleton logic for viewing executive summary details
+    }
+
+    private void unduhRingkasan() {
+        // Skeleton logic for downloading summary as TXT/PDF file
+    }
+
+    private void lihatRiwayatRingkasan() {
+        // Skeleton logic for listing user/journal historical summaries
+    }
 }

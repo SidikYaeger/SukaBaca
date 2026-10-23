@@ -1,0 +1,142 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam roundcorner 5
+skinparam shadowing false
+skinparam class {
+    BackgroundColor #FFFFFF
+    ArrowColor #2C3E50
+    BorderColor #2C3E50
+    HeaderBackgroundColor #ECEFF1
+}
+
+class User {
+    - id : Long
+    - username : String
+    - password : String
+    - name : String
+    - role : String
+    - userTier : String
+    - subscriptionStatus : String
+    - dailySummaryCount : Integer
+    - lastUsageDate : LocalDateTime
+    --
+    - registrasi() : void
+    - masuk() : void
+    - keluar() : void
+    + checkQuota() : boolean
+    + incrementUsage() : void
+    + getId() : Long
+    + getUsername() : String
+    + getUserTier() : String
+}
+
+class Subscription {
+    - subscriptionId : Long
+    - user : User
+    - status : String
+    - plan : String
+    - currentPeriodEnd : LocalDateTime
+    - usage : Integer
+    --
+    + createCheckoutSession() : void
+    + handleWebhook() : void
+    + cancelSubscription() : void
+    + decrementUsage() : boolean
+    + getUsage() : Integer
+    + getStatus() : String
+}
+
+class Journal {
+    - id : Long
+    - user : User
+    - title : String
+    - author : String
+    - snippet : String
+    - content : String
+    - publishDate : String
+    - formatFile : String
+    - download : Long
+    - views : Long
+    - createdAt : LocalDateTime
+    --
+    - validasiFile() : boolean
+    - unggahJurnal() : void
+    - memilihJurnal() : void
+    + downloadCount() : Long
+    + viewCount() : Long
+    + incrementDownload() : void
+    + incrementViews() : void
+    + getId() : Long
+    + getTitle() : String
+}
+
+class Ringkasan {
+    - ringkasanId : Long
+    - journal : Journal
+    - model : String
+    - isi : String
+    - formatFile : String
+    - tanggalDibuat : LocalDateTime
+    --
+    - buatRingkasan() : void
+    - lihatRingkasan() : void
+    - unduhRingkasan() : void
+    - lihatRiwayatRingkasan() : void
+    + getRingkasanId() : Long
+    + getIsi() : String
+    + getFormatFile() : String
+}
+
+class Review {
+    - reviewId : Long
+    - user : User
+    - journal : Journal
+    - rating : Integer
+    - komentar : String
+    - tanggalReview : LocalDateTime
+    --
+    + tambahReview(user : User, journal : Journal, rating : Integer, komentar : String) : void
+    + editReview(rating : Integer, komentar : String) : void
+    + hapusReview() : void
+    + hitungRataRataRating(reviews : List) : Double
+    + getRating() : Integer
+    + getKomentar() : String
+}
+
+class SmartSearch {
+    - keyword : String
+    - penulis : String
+    - tahunTerbit : String
+    - formatFile : String
+    - sortBy : String
+    - sortOrder : String
+    - minViews : Long
+    - minDownload : Long
+    --
+    + filterByPenulis(daftar : List, author : String) : List
+    + filterByTahun(daftar : List, year : String) : List
+    + filterByFormat(daftar : List, format : String) : List
+    + sortByViews(daftar : List, asc : boolean) : List
+    + sortByDownloads(daftar : List, asc : boolean) : List
+    + sortByTitle(daftar : List, asc : boolean) : List
+    + applyFilterAndSort(daftar : List) : List
+}
+
+' ==========================================
+' Relasi Berdasarkan Kaidah OOP & UML
+' ==========================================
+
+' 1. Komposisi (Composition): Belah ketupat hitam (*--)
+Journal "1" *-- "1..*" Ringkasan : contains
+
+' 2. Asosiasi (Association): Garis lurus pekat (--)
+User "1" -- "0..1" Subscription : subscribes
+User "1" -- "1..*" Journal : owns / uploads
+User "1" -- "0..*" Review : writes
+Journal "1" -- "0..*" Review : receives
+
+' 3. Dependensi (Dependency): Garis putus-putus berpanah (..>)
+SmartSearch ..> Journal : filters & sorts
+
+@enduml

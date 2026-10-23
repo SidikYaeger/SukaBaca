@@ -244,3 +244,16 @@ scratch/
 tmp/
 temp/
 /git
+
+# ------------------------------------------------------------------------------
+# 14. Diagram & Document Temporary / Autosave Files (Draw.io, Office, etc.)
+# ------------------------------------------------------------------------------
+*.drawio.bkp
+*.drawio.dtmp
+*.drawio~
+~$*.drawio
+~$*.doc*
+~$*.ppt*
+~$*.xls*
+*.stackdump
+core.*

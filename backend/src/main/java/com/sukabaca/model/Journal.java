@@ -29,6 +29,9 @@ public class Journal {
 
     private String publishDate;
 
+    @Column(name = "format_file", length = 50)
+    private String formatFile = "PDF";
+
     @Column(name = "download", nullable = false)
     private Long download = 0L;
 
@@ -83,6 +86,14 @@ public class Journal {
     public Long getViews() { return views; }
     public void setViews(Long views) { this.views = views != null ? views : 0L; }
 
+    public Long downloadCount() {
+        return this.download != null ? this.download : 0L;
+    }
+
+    public Long viewCount() {
+        return this.views != null ? this.views : 0L;
+    }
+
     public void incrementDownload() {
         this.download = (this.download == null ? 0L : this.download) + 1;
     }
@@ -93,4 +104,22 @@ public class Journal {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public String getFormatFile() { return formatFile; }
+    public void setFormatFile(String formatFile) { this.formatFile = formatFile; }
+
+    // --- Skeleton Methods from UML Diagram ---
+
+    private boolean validasiFile() {
+        // Skeleton validation for file format (e.g. PDF, EPUB, size limits)
+        return this.formatFile != null && ("PDF".equalsIgnoreCase(this.formatFile) || "EPUB".equalsIgnoreCase(this.formatFile));
+    }
+
+    private void unggahJurnal() {
+        // Skeleton logic for uploading journal file to storage/cloud
+    }
+
+    private void memilihJurnal() {
+        // Skeleton logic for selecting/opening a journal for reading
+    }
 }
