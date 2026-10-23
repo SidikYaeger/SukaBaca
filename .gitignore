@@ -54,6 +54,8 @@ authorized_keys
 # ------------------------------------------------------------------------------
 # 3. Database Credentials, Dumps & Local Data
 # ------------------------------------------------------------------------------
+database/
+sukabaca_db.sql
 *.sql
 *.sql.gz
 *.sqlite
@@ -80,7 +82,7 @@ backend/src/main/resources/application-secret*.yml
 backend/src/main/resources/application-prod.yml
 
 # ------------------------------------------------------------------------------
-# 4. Cloud & Infrastructure Credentials
+# 4. Cloud, Tunneling & Infrastructure Credentials
 # ------------------------------------------------------------------------------
 .aws/
 .gcloud/
@@ -90,6 +92,10 @@ kubeconfig*
 *.tfvars
 *.tfvars.json
 terraform.tfstate*
+.ngrok/
+ngrok.yml
+ngrok.log
+*tunnel*.json
 
 # ------------------------------------------------------------------------------
 # 5. User Uploads, Dynamic Media & Storage
@@ -154,6 +160,8 @@ venv/
 env/
 playwright-report/
 test-results/
+docs/screenshots/verify_*
+verify_*.png
 
 # ------------------------------------------------------------------------------
 # 9. IDE & Editor Specific Files
@@ -182,6 +190,12 @@ graphify-out/
 .cursor/
 .cursorrules
 .windsurfrules
+.copilot/
+.devin/
+.aider*
+.continue/
+*gemini*
+*graphify*
 CLAUDE.md
 *prompt*
 *task*.md
@@ -214,9 +228,19 @@ Thumbs.db
 [Dd]esktop.ini
 
 # ------------------------------------------------------------------------------
-# 13. General Logs & Temporary Files
+# 13. General Logs, Temporary Files & Accidental Redirects
 # ------------------------------------------------------------------------------
 *.log
 logs/
 *.tmp
 *.temp
+*.swp
+*.swo
+*~
+*.bak
+*.old
+*.orig
+scratch/
+tmp/
+temp/
+/git
