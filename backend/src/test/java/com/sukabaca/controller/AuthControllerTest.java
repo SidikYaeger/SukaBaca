@@ -28,18 +28,25 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("Uji Login Demo Fallback (Glen / Besar123)")
-    void testDemoLoginFallbackSuccess() {
-        when(userRepository.findByUsername("Glen")).thenReturn(Optional.empty());
+    @DisplayName("Uji Login Gagal Jika User Tidak Ada di Database")
+    void testLoginFailsWhenUserNotInDatabase() {
+        when(userRepository.findByUsername("UnknownUser")).thenReturn(Optional.empty());
 
         ResponseEntity<?> response = authController.login(Map.of(
-                "username", "Glen",
-                "password", "Besar123"
+                "username", "UnknownUser",
+                "password", "AnyPassword"
         ));
 
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+    }
+
+    @Test
+    @DisplayName("Uji Health Check Terhubung ke Database")
+    void testHealthCheckSuccess() {
+        when(userRepository.count()).thenReturn(6L);
+        ResponseEntity<?> response = authController.healthCheck();
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody().toString().contains("Demo user login successful"));
+        assertTrue(response.getBody().toString().contains("CONNECTED"));
     }
 
     @Test

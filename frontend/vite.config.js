@@ -7,6 +7,12 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      }
+    },
     allowedHosts: [
       'calisthenic-erika-prostomial.ngrok-free.dev',
       '.ngrok-free.dev',
@@ -19,6 +25,12 @@ export default defineConfig({
   preview: {
     port: 5173,
     host: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      }
+    },
     allowedHosts: [
       'calisthenic-erika-prostomial.ngrok-free.dev',
       '.ngrok-free.dev',

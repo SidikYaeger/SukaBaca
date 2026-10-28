@@ -16,10 +16,10 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(initialAuth.isAuthenticated);
   const [currentUser, setCurrentUser] = useState(initialAuth.user);
 
-  const handleLoginSuccess = (username) => {
-    store.setAuth(username);
+  const handleLoginSuccess = (userData) => {
+    store.setAuth(userData);
     setIsAuthenticated(true);
-    setCurrentUser(username);
+    setCurrentUser(userData);
   };
 
   const handleLogout = () => {
