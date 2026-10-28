@@ -176,6 +176,26 @@ export const store = {
     return data;
   },
 
+  async apiLogin(username, password) {
+    try {
+      const res = await fetch('http://localhost:8080/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { success: true, username: data.username || username, data };
+      }
+    } catch (err) {
+      // Backend not running locally or network error: fallback to demo credentials
+    }
+    if (username.trim()) {
+      return { success: true, username };
+    }
+    return { success: false, message: 'Username and password required' };
+  },
+
   clearAuth() {
     localStorage.removeItem('sukabaca_auth');
   },

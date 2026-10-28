@@ -34,16 +34,14 @@ export default function HomePage({ isAuthenticated = false, onLogout }) {
       {/* Top Navbar matching ResearchGate with SukaBaca Purple Nuance */}
       <header className="w-full border-b border-purple-100 bg-white sticky top-0 z-30 shadow-2xs">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          {/* Logo with Purple Branding */}
+          {/* SukaBaca Brand Logo */}
           <div 
             onClick={() => navigate('/home')} 
-            className="cursor-pointer flex items-center gap-1 select-none"
+            className="cursor-pointer flex items-center gap-2 select-none"
           >
-            <span className="text-2xl font-black tracking-tight text-[#7c3a7f]">
-              Research<span className="text-[#b83c9c]">Gate</span>
-            </span>
-            <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5 ml-2 uppercase">
-              SukaBaca
+            <img src="/sukabaca-book.png" alt="SukaBaca Logo" className="h-8 w-auto object-contain" />
+            <span className="text-2xl font-black tracking-tight text-[#4c1d95]">
+              Suka<span className="text-[#b83c9c]">Baca</span>
             </span>
           </div>
 
@@ -210,74 +208,9 @@ export default function HomePage({ isAuthenticated = false, onLogout }) {
             </div>
           </div>
         </div>
-
-        <div className="border-t border-purple-100 my-12" />
-
-        {/* Section 3: ResearchGate Business Solutions in Purple Tone */}
-        <div className="py-6">
-          <h2 className="text-xl sm:text-2xl font-extrabold text-[#2e1065] mb-8">
-            ResearchGate Business Solutions
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Card 1: Scientific Recruitment */}
-            <div className="border border-purple-100 rounded-2xl overflow-hidden bg-white shadow-xs hover:shadow-md transition-shadow flex flex-col sm:flex-row">
-              <div className="sm:w-2/5 bg-purple-50/60 min-h-[160px] relative overflow-hidden flex items-center justify-center p-4">
-                <div className="w-20 h-20 rounded-full bg-purple-200/70 flex items-center justify-center text-3xl">
-                  🔬
-                </div>
-              </div>
-              <div className="sm:w-3/5 p-6 flex flex-col justify-between">
-                <div>
-                  <h3 className="font-bold text-base text-gray-900 mb-2">
-                    Scientific Recruitment
-                  </h3>
-                  <p className="text-xs text-gray-600 leading-relaxed mb-4">
-                    Hire qualified researchers and build the best teams in science.
-                  </p>
-                </div>
-                <div>
-                  <button
-                    onClick={() => navigate('/upload')}
-                    className="px-4 py-1.5 border border-purple-400 text-purple-700 hover:bg-purple-50 text-xs font-bold rounded-lg transition-all"
-                  >
-                    Find out more
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 2: Marketing Solutions */}
-            <div className="border border-purple-100 rounded-2xl overflow-hidden bg-white shadow-xs hover:shadow-md transition-shadow flex flex-col sm:flex-row">
-              <div className="sm:w-2/5 bg-purple-50/60 min-h-[160px] relative overflow-hidden flex items-center justify-center p-4">
-                <div className="w-20 h-20 rounded-full bg-purple-200/70 flex items-center justify-center text-3xl">
-                  📊
-                </div>
-              </div>
-              <div className="sm:w-3/5 p-6 flex flex-col justify-between">
-                <div>
-                  <h3 className="font-bold text-base text-gray-900 mb-2">
-                    Marketing Solutions
-                  </h3>
-                  <p className="text-xs text-gray-600 leading-relaxed mb-4">
-                    Grow your brand's impact in the scientific community with the world's leading network for scientists.
-                  </p>
-                </div>
-                <div>
-                  <button
-                    onClick={() => navigate('/upload')}
-                    className="px-4 py-1.5 border border-purple-400 text-purple-700 hover:bg-purple-50 text-xs font-bold rounded-lg transition-all"
-                  >
-                    Find out more
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </main>
 
-      {/* Footer matching ResearchGate in soft purple */}
+      {/* Footer in soft purple */}
       <footer className="w-full bg-[#fbf9fe] border-t border-purple-100 py-10 mt-12 text-xs text-gray-600">
         <div className="max-w-6xl mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-6 border-b border-purple-100">

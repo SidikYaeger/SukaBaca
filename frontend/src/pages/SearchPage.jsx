@@ -103,13 +103,12 @@ export default function SearchPage({ onLogout }) {
             </button>
 
             <div className="flex items-center gap-2">
-              <span className="font-extrabold tracking-wider bg-white/20 px-1.5 py-0.5 rounded text-[11px]">
-                NIH
+              <span className="font-extrabold tracking-wider bg-white/20 px-2 py-0.5 rounded text-[11px]">
+                SUKABACA
               </span>
               <span className="font-semibold text-purple-100 hidden sm:inline">
-                National Library of Medicine
+                Sistem Manajemen & Ringkasan Jurnal Akademik
               </span>
-              <span className="text-purple-300/80 hidden md:inline">• SukaBaca Biotechnology & Software Archive</span>
             </div>
           </div>
 
@@ -133,21 +132,18 @@ export default function SearchPage({ onLogout }) {
         </div>
       </header>
 
-      {/* 2. PubMed Search Header Area */}
+      {/* 2. SukaBaca Search Header Area */}
       <div className="w-full bg-white border-b border-purple-100 py-4 px-4 sm:px-8 shadow-xs">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-4 md:gap-6">
-          {/* PubMed Logo in SukaBaca Purple */}
+          {/* SukaBaca Logo */}
           <div 
             onClick={() => { handleClearSearch(); navigate('/search'); }}
-            className="cursor-pointer flex items-baseline gap-0.5 select-none"
+            className="cursor-pointer flex items-center gap-2 select-none"
           >
-            <span className="text-3xl font-serif font-black tracking-tight text-[#4c1d95]">
-              Pub
+            <img src="/sukabaca-book.png" alt="SukaBaca Logo" className="h-9 w-auto object-contain" />
+            <span className="text-3xl font-black tracking-tight text-[#4c1d95]">
+              Suka<span className="text-[#b83c9c]">Baca</span>
             </span>
-            <span className="text-3xl font-sans font-black tracking-tight text-[#b83c9c]">
-              Med
-            </span>
-            <span className="text-[10px] font-bold text-purple-400 ml-0.5">®</span>
           </div>
 
           {/* Search Box */}
@@ -157,7 +153,7 @@ export default function SearchPage({ onLogout }) {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search PubMed, e.g. iot, pedoman investasi, sahrul, architecture"
+                placeholder="Search SukaBaca, e.g. iot, pedoman investasi, sahrul, architecture"
                 className="w-full px-3.5 py-2.5 text-sm sm:text-base outline-none text-gray-900 font-medium placeholder-gray-400"
               />
               {searchQuery && (
@@ -195,20 +191,17 @@ export default function SearchPage({ onLogout }) {
 
       {/* 3. Main Body */}
       {!hasSearched ? (
-        /* STATE 1: Empty search state (PubMed Homepage) */
+        /* STATE 1: Empty search state */
         <main className="flex-1 max-w-5xl mx-auto px-6 py-12 w-full text-center">
           <div className="py-8">
-            <h1 className="text-2xl sm:text-3xl font-bold text-[#2b1055] mb-2 font-serif">
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#2b1055] mb-6 font-serif">
               Search Millions of Academic Publications & Citations
             </h1>
-            <p className="text-xs sm:text-sm text-gray-600 max-w-xl mx-auto leading-relaxed mb-8">
-              PubMed® comprises more than 38 million citations for biomedical and software engineering literature from MEDLINE, life science journals, and online books.
-            </p>
 
             {/* Popular Topics / Shortcuts */}
             <div className="bg-white border border-purple-100 rounded-2xl p-6 max-w-2xl mx-auto text-left shadow-xs">
               <h3 className="text-xs font-bold uppercase tracking-wider text-purple-900 mb-3">
-                Coba Pencarian Populer (Klik untuk melihat hasil sesuai mockup):
+                COBA PENCARIAN POPULER:
               </h3>
               <div className="flex flex-wrap gap-2">
                 {['iot', 'pedoman investasi', 'pedoman kearsipan', 'sustainable architecture', 'sahrul'].map((item) => (

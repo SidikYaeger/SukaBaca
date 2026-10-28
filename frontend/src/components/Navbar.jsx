@@ -20,7 +20,10 @@ export default function Navbar({
           onClick={() => navigate('/upload')} 
           className="flex items-center gap-2 cursor-pointer hover:opacity-90 transition-opacity"
         >
-          <img src="/logo.png" alt="SukaBaca Logo" className="h-10 sm:h-12 w-auto object-contain" />
+          <img src="/sukabaca-book.png" alt="SukaBaca Logo" className="h-9 w-auto object-contain" />
+          <span className="text-xl font-black tracking-tight text-[#4c1d95]">
+            Suka<span className="text-[#b83c9c]">Baca</span>
+          </span>
         </div>
 
         <button
@@ -116,7 +119,10 @@ export default function Navbar({
         onClick={() => navigate('/upload')}
         className="flex items-center gap-1.5 cursor-pointer hover:opacity-90 transition-opacity flex-shrink-0"
       >
-        <img src="/logo.png" alt="SukaBaca Logo" className="h-9 sm:h-11 w-auto object-contain" />
+        <img src="/sukabaca-book.png" alt="SukaBaca Logo" className="h-9 w-auto object-contain" />
+        <span className="text-xl font-black tracking-tight text-[#4c1d95] hidden sm:inline">
+          Suka<span className="text-[#b83c9c]">Baca</span>
+        </span>
       </div>
     </header>
   );

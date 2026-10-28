@@ -70,13 +70,10 @@ export default function HistoryPage({ onLogout }) {
 
       {/* Grid 2x2 of Journals (matching history.png) */}
       <div className="flex-1 px-4 sm:px-8 max-w-4xl mx-auto w-full mt-2">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4">
           <p className="text-xs text-gray-600 font-medium">
             Koleksi jurnal dan ringkasan yang telah diakses atau diunduh:
           </p>
-          <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
-            {journals.length} Dokumen
-          </span>
         </div>
 
         <div className="grid grid-cols-2 gap-4 sm:gap-6">
@@ -113,20 +110,17 @@ export default function HistoryPage({ onLogout }) {
 
                 {/* Card Footer: Title & Download Action */}
                 <div className="flex items-center justify-between mt-2.5 px-1">
-                  <span className="font-bold text-xs sm:text-sm text-gray-950 truncate max-w-[65%]">
+                  <span className="font-bold text-xs sm:text-sm text-gray-950 truncate max-w-[70%]">
                     {item.title}
                   </span>
 
                   <button
                     type="button"
                     onClick={(e) => handleDownloadClick(item, e)}
-                    className="flex items-center gap-1.5 text-gray-900 hover:text-purple-700 active:scale-95 transition-all bg-white px-2 py-1 rounded-lg border border-gray-200 shadow-2xs"
-                    title="Unduh Jurnal"
+                    className="p-1.5 text-gray-900 hover:text-purple-700 active:scale-95 transition-all bg-white rounded-lg border border-gray-200 shadow-2xs hover:bg-purple-50"
+                    title="Unduh Ringkasan"
                   >
-                    <Download size={14} strokeWidth={2.4} />
-                    <span className="text-[11px] font-semibold text-gray-700">
-                      {item.year || '2026'}
-                    </span>
+                    <Download size={15} strokeWidth={2.4} />
                   </button>
                 </div>
               </div>
