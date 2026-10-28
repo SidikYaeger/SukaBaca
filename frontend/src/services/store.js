@@ -171,7 +171,12 @@ export const store = {
   },
 
   setAuth(user) {
-    const data = { isAuthenticated: !!user, user };
+    const usernameStr = typeof user === 'object' && user !== null ? (user.username || user.name || 'User') : (user || '');
+    const data = { 
+      isAuthenticated: !!usernameStr, 
+      user: usernameStr, 
+      profile: typeof user === 'object' ? user : null 
+    };
     localStorage.setItem('sukabaca_auth', JSON.stringify(data));
     return data;
   },
