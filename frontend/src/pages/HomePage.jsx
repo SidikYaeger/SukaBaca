@@ -1,155 +1,248 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
+import { Search as SearchIcon } from 'lucide-react';
+import { store } from '../services/store';
 
 export default function HomePage({ isAuthenticated = false, onLogout }) {
+  const [searchKeyword, setSearchKeyword] = useState('');
   const navigate = useNavigate();
+  const auth = store.getAuth();
+  const isUserLoggedIn = isAuthenticated || auth.isAuthenticated;
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchKeyword.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchKeyword.trim())}`);
+    } else {
+      navigate('/search');
+    }
+  };
+
+  const handleTopicClick = (topic) => {
+    navigate(`/search?q=${encodeURIComponent(topic)}`);
+  };
+
+  const topics = [
+    'Engineering', 'Mathematics', 'Biology',
+    'Computer Science', 'Climate Change',
+    'Medicine', 'Physics', 'Social Science',
+    'Astrophysics', 'Chemistry'
+  ];
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
-      {/* Top Gradient Hero Area */}
-      <div 
-        className="w-full text-white px-4 sm:px-8 pb-12 pt-4 relative overflow-hidden"
-        style={{
-          background: 'linear-gradient(135deg, #7c3a7f 0%, #3e4a83 100%)'
-        }}
-      >
-        {/* Navbar */}
-        <Navbar 
-          variant="home" 
-          isAuthenticated={isAuthenticated} 
-          onLogout={onLogout} 
-        />
-
-        {/* Hero Card Graphic Replica */}
-        <div className="mt-8 max-w-2xl mx-auto bg-white/95 backdrop-blur rounded-2xl p-4 sm:p-6 shadow-xl border border-white/20">
-          <div className="grid grid-cols-4 gap-2 sm:gap-3">
-            {[...Array(8)].map((_, i) => (
-              <div 
-                key={i} 
-                className="h-12 sm:h-16 rounded-xl bg-gray-100/90 border border-gray-200/60 flex items-center justify-center"
-              >
-                <div className="w-4 h-4 rounded-full bg-purple-200/50" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Section */}
-      <div className="px-6 sm:px-12 py-10 max-w-4xl mx-auto w-full">
-        {/* Headline */}
-        <div className="mb-8">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-950 tracking-tight mb-2.5">
-            Automatically Summarize Your Journal
-          </h2>
-          <p className="text-sm text-gray-600 max-w-xl leading-relaxed mb-5">
-            Get a clear, structured, automatic summary of any journal—just upload and click summarize.
-          </p>
-
-          <button
-            onClick={() => navigate(isAuthenticated ? '/upload' : '/login')}
-            className="px-6 py-2.5 bg-black hover:bg-gray-800 active:scale-95 text-white font-semibold text-xs sm:text-sm rounded-xl shadow transition-all"
+    <div className="flex-1 flex flex-col bg-white min-h-screen text-gray-900 font-sans">
+      {/* Top Navbar matching ResearchGate with SukaBaca Purple Nuance */}
+      <header className="w-full border-b border-purple-100 bg-white sticky top-0 z-30 shadow-2xs">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          {/* SukaBaca Brand Logo */}
+          <div 
+            onClick={() => navigate('/home')} 
+            className="cursor-pointer flex items-center gap-2 select-none"
           >
-            Try Now
-          </button>
+            <img src="/sukabaca-book.png" alt="SukaBaca Logo" className="h-8 w-auto object-contain" />
+            <span className="text-2xl font-black tracking-tight text-[#4c1d95]">
+              Suka<span className="text-[#b83c9c]">Baca</span>
+            </span>
+          </div>
+
+          {/* Right Navigation */}
+          <div className="flex items-center gap-4 text-sm font-semibold">
+            {!isUserLoggedIn ? (
+              <>
+                <button
+                  onClick={() => navigate('/login')}
+                  className="text-gray-700 hover:text-purple-800 transition-colors px-2 py-1"
+                >
+                  Log in
+                </button>
+                <button
+                  onClick={() => navigate('/register')}
+                  className="px-4 py-2 rounded-lg text-white font-bold text-xs sm:text-sm shadow-xs hover:opacity-95 active:scale-95 transition-all"
+                  style={{
+                    background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
+                    border: '1px solid #6b21a8'
+                  }}
+                >
+                  Join for free
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => navigate('/upload')}
+                  className="px-4 py-2 rounded-lg text-white font-bold text-xs sm:text-sm shadow-xs hover:opacity-95 active:scale-95 transition-all"
+                  style={{
+                    background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
+                  }}
+                >
+                  Dashboard ({auth.user || 'Glen'})
+                </button>
+                <button
+                  onClick={() => {
+                    if (onLogout) onLogout();
+                    store.clearAuth();
+                    navigate('/home');
+                  }}
+                  className="text-gray-500 hover:text-red-600 transition-colors px-2 py-1 text-xs font-medium"
+                >
+                  Logout
+                </button>
+              </>
+            )}
+          </div>
         </div>
+      </header>
 
-        {/* Visual Magazine / Journal Showcase Grid (matching mockups) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 my-10">
-          {/* Left Column */}
-          <div className="space-y-5">
-            {/* Pale blue textured box */}
-            <div className="h-44 rounded-2xl bg-gradient-to-br from-[#bad5e0] to-[#99bccd] p-4 flex items-center justify-center text-center shadow-sm">
-              <span className="text-xs text-[#2c4e61] font-semibold tracking-wider uppercase">
-                Academic Research Archive
-              </span>
-            </div>
+      {/* Main Content */}
+      <main className="flex-1 max-w-6xl mx-auto px-6 py-12 w-full">
+        {/* Section 1: Discover research (Hero) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center py-8">
+          {/* Left Illustration Circle with Purple Theme */}
+          <div className="lg:col-span-5 flex justify-center">
+            <div className="relative w-64 h-64 sm:w-72 sm:h-72 rounded-full bg-gradient-to-br from-[#f8f5fc] via-[#f3e8ff] to-[#eeddfd] flex items-center justify-center p-6 border-2 border-purple-200/80 shadow-sm">
+              {/* Scientific Vector Collage */}
+              <svg viewBox="0 0 240 240" className="w-full h-full drop-shadow-xs">
+                {/* Laboratory Flask & Beaker in Purple Tones */}
+                <path d="M105 70 L105 100 L85 140 A10 10 0 0 0 94 154 L146 154 A10 10 0 0 0 155 140 L135 100 L135 70 Z" fill="#7c3a7f" opacity="0.9" />
+                <rect x="100" y="66" width="40" height="7" rx="3" fill="#581c87" />
+                <circle cx="112" cy="132" r="5" fill="#fbcfe8" />
+                <circle cx="128" cy="125" r="4" fill="#fbcfe8" />
 
-            {/* Newspaper clipping card */}
-            <div className="border border-gray-300 rounded-2xl p-4 bg-[#faf9f6] shadow-sm font-serif text-gray-800 text-xs">
-              <h3 className="text-base font-black leading-tight uppercase mb-1 border-b border-gray-300 pb-1">
-                Man Found Dead In Boat On Lake
-              </h3>
-              <p className="leading-tight text-[11px] text-gray-700">
-                INDIAN LAKE — A 53-year-old vacationing with his wife and family was found at the lake...
-              </p>
+                {/* Atom model */}
+                <ellipse cx="60" cy="80" rx="28" ry="12" fill="none" stroke="#9333ea" strokeWidth="2.5" transform="rotate(-30 60 80)" />
+                <ellipse cx="60" cy="80" rx="28" ry="12" fill="none" stroke="#9333ea" strokeWidth="2.5" transform="rotate(30 60 80)" />
+                <circle cx="60" cy="80" r="5" fill="#c084fc" />
+
+                {/* Satellite */}
+                <g transform="translate(145, 120) rotate(-25)">
+                  <rect x="10" y="20" width="28" height="34" rx="4" fill="#6c757d" stroke="#343a40" strokeWidth="2" />
+                  <line x1="0" y1="37" x2="10" y2="37" stroke="#343a40" strokeWidth="3" />
+                  <line x1="38" y1="37" x2="48" y2="37" stroke="#343a40" strokeWidth="3" />
+                  <rect x="-18" y="25" width="18" height="24" rx="2" fill="#7c3a7f" stroke="#581c87" strokeWidth="1.5" />
+                  <rect x="48" y="25" width="18" height="24" rx="2" fill="#7c3a7f" stroke="#581c87" strokeWidth="1.5" />
+                  <circle cx="24" cy="37" r="4" fill="#ffd166" />
+                </g>
+
+                {/* Heart Rate / EKG Graph Monitor */}
+                <g transform="translate(40, 140)">
+                  <rect x="0" y="0" width="60" height="42" rx="4" fill="#212529" />
+                  <path d="M5 24 L18 24 L24 10 L30 34 L36 18 L42 24 L55 24" fill="none" stroke="#d946ef" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                </g>
+
+                {/* DNA Double Helix */}
+                <g transform="translate(75, 175)">
+                  <path d="M0 10 Q12 0 24 10 T48 10 T72 10" fill="none" stroke="#b83c9c" strokeWidth="2.5" />
+                  <path d="M0 10 Q12 20 24 10 T48 10 T72 10" fill="none" stroke="#7da5d9" strokeWidth="2.5" />
+                  <line x1="12" y1="5" x2="12" y2="15" stroke="#495057" strokeWidth="1.5" />
+                  <line x1="36" y1="5" x2="36" y2="15" stroke="#495057" strokeWidth="1.5" />
+                  <line x1="60" y1="5" x2="60" y2="15" stroke="#495057" strokeWidth="1.5" />
+                </g>
+              </svg>
             </div>
           </div>
 
-          {/* Right Column */}
-          <div className="space-y-5">
-            {/* Magazine style card */}
-            <div className="border border-gray-300 rounded-2xl p-4 bg-white shadow-sm font-sans text-xs">
-              <div className="flex justify-between text-[10px] text-gray-500 mb-1">
-                <span>Ginyard International Co.</span>
-                <span>04/05/2026</span>
-              </div>
-              <h3 className="text-base font-bold text-gray-900 border-b-2 border-black pb-1 mb-2">
-                Sustainable Style
-              </h3>
-              <p className="text-[11px] text-gray-600 line-clamp-4 leading-snug">
-                Fashion with a Conscience. Exploring green methodologies in contemporary academic textile research...
-              </p>
-            </div>
+          {/* Right Text & Search Box */}
+          <div className="lg:col-span-7 space-y-4">
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-[#2e1065] tracking-tight">
+              Discover research
+            </h1>
+            <p className="text-sm sm:text-base text-gray-700 leading-relaxed max-w-xl">
+              Access over 160 million publication pages and stay up to date with what's happening in your field.
+            </p>
 
-            {/* Pattern texture box */}
-            <div className="h-44 rounded-2xl bg-gradient-to-tr from-[#98c5d9] to-[#c7e4ee] p-4 flex items-center justify-center text-center shadow-sm">
-              <span className="text-xs text-[#1e485e] font-semibold tracking-wider uppercase">
-                AI Structured Summary Output
-              </span>
-            </div>
+            {/* Search Publications Bar */}
+            <form onSubmit={handleSearchSubmit} className="pt-2 max-w-lg">
+              <div className="relative flex items-center border-2 border-purple-300 focus-within:border-purple-600 rounded-xl overflow-hidden bg-white shadow-xs transition-all">
+                <SearchIcon size={18} className="text-purple-400 ml-3.5 flex-shrink-0" />
+                <input
+                  type="text"
+                  value={searchKeyword}
+                  onChange={(e) => setSearchKeyword(e.target.value)}
+                  placeholder="Search publications..."
+                  className="w-full px-3 py-3 text-sm outline-none placeholder-gray-400 text-gray-900"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2 mr-1.5 rounded-lg text-white font-bold text-xs shadow hover:opacity-95 active:scale-95 transition-all"
+                  style={{
+                    background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
+                  }}
+                >
+                  Search
+                </button>
+              </div>
+            </form>
           </div>
         </div>
 
-        {/* Testimonials */}
-        <div className="mt-14 mb-8">
-          <h3 className="text-xl font-bold text-gray-900 mb-1">
-            Testimonials
-          </h3>
-          <p className="text-xs text-gray-500 mb-6">
-            A little line about what's being said and who's saying it.
-          </p>
+        <div className="border-t border-purple-100 my-10" />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Testimonial 1 */}
-            <div className="border border-gray-200 rounded-2xl p-5 bg-white shadow-sm">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-sm">
-                  😊
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-gray-900 leading-tight">Zulfa</h4>
-                  <p className="text-[10px] text-gray-500">PRADA Executive Chairman</p>
-                </div>
-              </div>
-              <p className="text-xs text-gray-700 leading-relaxed font-medium">
-                Using this product felt like it transformed me completely.
-              </p>
-            </div>
+        {/* Section 2: Connect with your scientific community & Topic Pages */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 py-6 items-start">
+          {/* Left Description */}
+          <div className="lg:col-span-5 space-y-3">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#2e1065] tracking-tight">
+              Connect with your scientific community
+            </h2>
+            <p className="text-sm text-gray-700 leading-relaxed max-w-md">
+              Share your research, collaborate with your peers, and get the support you need to advance your career.
+            </p>
+          </div>
 
-            {/* Testimonial 2 */}
-            <div className="border border-gray-200 rounded-2xl p-5 bg-white shadow-sm">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center font-bold text-sm">
-                  🙂
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-gray-900 leading-tight">Babas</h4>
-                  <p className="text-[10px] text-gray-500">Master of Ghosting</p>
-                </div>
-              </div>
-              <p className="text-xs text-gray-700 leading-relaxed font-medium">
-                Your expectations will fly sky high. I felt like I was soaring.
-              </p>
+          {/* Right Topic Pills in Purple Hue */}
+          <div className="lg:col-span-7">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-purple-900 mb-4">
+              VISIT TOPIC PAGES
+            </h3>
+
+            <div className="flex flex-wrap gap-2.5">
+              {topics.map((topic) => (
+                <button
+                  key={topic}
+                  onClick={() => handleTopicClick(topic)}
+                  className="px-4 py-2 rounded-full border border-purple-400 text-purple-700 hover:bg-purple-50 active:scale-95 text-xs sm:text-sm font-semibold transition-all shadow-2xs"
+                >
+                  {topic}
+                </button>
+              ))}
             </div>
           </div>
         </div>
-      </div>
+      </main>
 
-      {/* Footer */}
-      <Footer />
+      {/* Footer in soft purple */}
+      <footer className="w-full bg-[#fbf9fe] border-t border-purple-100 py-10 mt-12 text-xs text-gray-600">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-6 border-b border-purple-100">
+            {/* Left Nav */}
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              <span className="cursor-pointer hover:text-purple-700 hover:underline">About us</span>
+              <span className="cursor-pointer hover:text-purple-700 hover:underline">News</span>
+              <span className="cursor-pointer hover:text-purple-700 hover:underline">Careers</span>
+              <span className="cursor-pointer hover:text-purple-700 hover:underline">Help Center</span>
+              <span className="cursor-pointer hover:text-purple-700 hover:underline">Terms</span>
+              <span className="cursor-pointer hover:text-purple-700 hover:underline">Privacy</span>
+              <span className="cursor-pointer hover:text-purple-700 hover:underline">Copyright</span>
+              <span className="cursor-pointer hover:text-purple-700 hover:underline">Imprint</span>
+            </div>
+
+            {/* Right Nav */}
+            <div className="flex flex-wrap gap-x-5 gap-y-2 font-medium text-gray-700">
+              <span className="cursor-pointer hover:text-purple-700 hover:underline">Researchers</span>
+              <span className="cursor-pointer hover:text-purple-700 hover:underline">Q&A</span>
+              <span className="cursor-pointer hover:text-purple-700 hover:underline">Publications</span>
+              <span className="cursor-pointer hover:text-purple-700 hover:underline">Jobs</span>
+              <span className="cursor-pointer hover:text-purple-700 hover:underline">Advertising</span>
+              <span className="cursor-pointer hover:text-purple-700 hover:underline">Recruiting</span>
+            </div>
+          </div>
+
+          <div className="pt-6 flex flex-col sm:flex-row justify-between items-center text-[11px] text-gray-500 gap-2">
+            <p>© 2008-2026 SukaBaca Academic Research. All rights reserved.</p>
+            <p className="text-purple-600 font-medium">IMPAL Coursework Edition • Telkom University</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

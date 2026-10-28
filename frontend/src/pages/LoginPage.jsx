@@ -1,22 +1,32 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { store } from '../services/store';
 
 export default function LoginPage({ onLoginSuccess }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
       setError('Harap masukkan username dan password');
       return;
     }
-    if (onLoginSuccess) {
-      onLoginSuccess(username);
+    setLoading(true);
+    const result = await store.apiLogin(username, password);
+    setLoading(false);
+
+    if (result.success) {
+      if (onLoginSuccess) {
+        onLoginSuccess(result.username);
+      }
+      navigate('/upload');
+    } else {
+      setError(result.message || 'Login gagal, periksa username dan password Anda');
     }
-    navigate('/upload');
   };
 
   const handleFillSample = () => {
@@ -29,13 +39,16 @@ export default function LoginPage({ onLoginSuccess }) {
     <div className="flex-1 flex flex-col justify-center items-center bg-[#ededed] p-4 sm:p-6 min-h-screen">
       {/* Centered White Card */}
       <div className="w-full max-w-[360px] bg-white rounded-[32px] p-8 shadow-sm flex flex-col items-center">
-        {/* Logo */}
+        {/* SukaBaca Brand Logo */}
         <div className="mb-6 flex flex-col items-center cursor-pointer" onClick={() => navigate('/home')}>
           <img 
-            src="/logo.png" 
+            src="/sukabaca-book.png" 
             alt="SukaBaca Logo" 
-            className="w-36 h-auto object-contain"
+            className="w-20 h-auto object-contain mb-1"
           />
+          <h1 className="text-2xl font-black tracking-tight text-[#4c1d95]">
+            Suka<span className="text-[#b83c9c]">Baca</span>
+          </h1>
         </div>
 
         {/* Error message */}
