@@ -108,7 +108,7 @@ export default function RegisterPage({ onRegisterSuccess }) {
         {/* Footer Link */}
         <div className="mt-8 text-center">
           <p className="text-xs sm:text-sm text-gray-900 font-medium">
-            Already have an accout?{' '}
+            Already have an account?{' '}
             <Link 
               to="/login" 
               className="font-bold underline decoration-1 underline-offset-2 hover:text-purple-700 transition-colors"

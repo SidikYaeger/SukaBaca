@@ -9,17 +9,21 @@ import UploadFormPage from './pages/UploadFormPage';
 import SearchPage from './pages/SearchPage';
 import HistoryPage from './pages/HistoryPage';
 import ArticleDetailPage from './pages/ArticleDetailPage';
+import { store } from './services/store';
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
+  const initialAuth = store.getAuth();
+  const [isAuthenticated, setIsAuthenticated] = useState(initialAuth.isAuthenticated);
+  const [currentUser, setCurrentUser] = useState(initialAuth.user);
 
   const handleLoginSuccess = (username) => {
+    store.setAuth(username);
     setIsAuthenticated(true);
     setCurrentUser(username);
   };
 
   const handleLogout = () => {
+    store.clearAuth();
     setIsAuthenticated(false);
     setCurrentUser(null);
   };
