@@ -22,6 +22,7 @@ export default function SearchPage({ onLogout }) {
 
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [activeQuery, setActiveQuery] = useState(initialQuery);
+  const [showFilters, setShowFilters] = useState(!!initialQuery);
   const [journals, setJournals] = useState([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [modalStep, setModalStep] = useState(0); // 0: none, 1: confirm, 2: success
@@ -45,6 +46,7 @@ export default function SearchPage({ onLogout }) {
     setActiveQuery(searchQuery.trim());
     if (searchQuery.trim()) {
       setSearchParams({ q: searchQuery.trim() });
+      setShowFilters(true);
     } else {
       setSearchParams({});
     }
@@ -54,6 +56,7 @@ export default function SearchPage({ onLogout }) {
     setSearchQuery('');
     setActiveQuery('');
     setSearchParams({});
+    setShowFilters(false);
   };
 
   // Filter journals based on active search query
@@ -86,6 +89,7 @@ export default function SearchPage({ onLogout }) {
   };
 
   const hasSearched = activeQuery.trim().length > 0;
+  const isFilterViewActive = hasSearched || showFilters;
 
   return (
     <div className="flex-1 flex flex-col bg-[#faf9fc] min-h-screen font-sans text-gray-900">
@@ -177,20 +181,28 @@ export default function SearchPage({ onLogout }) {
             </div>
 
             {/* Quick sub-links under search input */}
-            <div className="flex items-center justify-between text-[11px] text-purple-700 font-medium mt-1.5 px-1">
-              <div className="flex items-center gap-3">
-                <span className="hover:underline cursor-pointer">Advanced</span>
-                <span className="hover:underline cursor-pointer">Create alert</span>
-                <span className="hover:underline cursor-pointer">Create RSS</span>
-              </div>
-              <span className="hover:underline cursor-pointer">User Guide</span>
+            <div className="flex items-center text-[11px] text-purple-700 font-medium mt-1.5 px-1">
+              <button
+                type="button"
+                onClick={() => setShowFilters((prev) => !prev)}
+                className={`hover:underline cursor-pointer flex items-center gap-1.5 font-semibold transition-all ${
+                  showFilters ? 'text-purple-900 font-bold' : 'text-purple-700'
+                }`}
+              >
+                <span>Advanced</span>
+                {showFilters && (
+                  <span className="text-[10px] bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded-full font-bold">
+                    Filter Aktif
+                  </span>
+                )}
+              </button>
             </div>
           </form>
         </div>
       </div>
 
       {/* 3. Main Body */}
-      {!hasSearched ? (
+      {!isFilterViewActive ? (
         /* STATE 1: Empty search state */
         <main className="flex-1 max-w-5xl mx-auto px-6 py-12 w-full text-center">
           <div className="py-8">
@@ -211,6 +223,7 @@ export default function SearchPage({ onLogout }) {
                       setSearchQuery(item);
                       setActiveQuery(item);
                       setSearchParams({ q: item });
+                      setShowFilters(true);
                     }}
                     className="px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-300 text-purple-800 hover:bg-purple-600 hover:text-white transition-all text-xs font-semibold shadow-2xs"
                   >
@@ -258,111 +271,132 @@ export default function SearchPage({ onLogout }) {
           {/* Two-column layout matching screenshot */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             {/* Left Column: Mockup PubMed Sidebar in Purple Nuance */}
-            <aside className="lg:col-span-3 space-y-6 text-xs text-gray-800">
-              {/* My Custom Filters */}
-              <div>
-                <h4 className="text-[11px] font-bold text-purple-900 uppercase tracking-wider mb-1">
-                  MY CUSTOM FILTERS
-                </h4>
-                <span className="text-purple-700 hover:underline cursor-pointer font-medium">
-                  Edit custom filters
-                </span>
-              </div>
-
-              {/* Results by Year Histogram in Purple */}
-              <div className="border-t border-purple-100 pt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-[11px] font-bold text-purple-900 uppercase tracking-wider">
-                    RESULTS BY YEAR
+            {showFilters && (
+              <aside className="lg:col-span-3 space-y-6 text-xs text-gray-800">
+                {/* My Custom Filters */}
+                <div>
+                  <h4 className="text-[11px] font-bold text-purple-900 uppercase tracking-wider mb-1">
+                    MY CUSTOM FILTERS
                   </h4>
-                  <div className="flex items-center gap-1 text-gray-400">
-                    <Maximize2 size={13} className="cursor-pointer hover:text-purple-700" />
-                    <Download size={13} className="cursor-pointer hover:text-purple-700" />
+                  <span className="text-purple-700 hover:underline cursor-pointer font-medium">
+                    Edit custom filters
+                  </span>
+                </div>
+
+                {/* Results by Year Histogram in Purple */}
+                <div className="border-t border-purple-100 pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-[11px] font-bold text-purple-900 uppercase tracking-wider">
+                      RESULTS BY YEAR
+                    </h4>
+                    <div className="flex items-center gap-1 text-gray-400">
+                      <Maximize2 size={13} className="cursor-pointer hover:text-purple-700" />
+                      <Download size={13} className="cursor-pointer hover:text-purple-700" />
+                    </div>
+                  </div>
+
+                  {/* SVG Histogram Graphic Replica matching mockup in Purple */}
+                  <div className="h-20 w-full bg-white rounded flex items-end justify-between px-1 pt-4 pb-1 border-b border-purple-200">
+                    <div className="w-1 bg-purple-300 h-1" />
+                    <div className="w-1 bg-purple-300 h-1.5" />
+                    <div className="w-1 bg-purple-400 h-2" />
+                    <div className="w-1 bg-purple-400 h-3" />
+                    <div className="w-1 bg-purple-500 h-5" />
+                    <div className="w-1 bg-purple-500 h-8" />
+                    <div className="w-1 bg-[#7c3a7f] h-12" />
+                    <div className="w-1 bg-[#b83c9c] h-16" />
+                    <div className="w-1 bg-[#6b21a8] h-14" />
+                  </div>
+
+                  {/* Timeline handles */}
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-purple-900 mt-1">
+                    <div className="flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-full border-2 border-purple-600 bg-white inline-block" />
+                      <span>1955</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span>2027</span>
+                      <span className="w-2.5 h-2.5 rounded-full border-2 border-purple-600 bg-white inline-block" />
+                    </div>
                   </div>
                 </div>
 
-                {/* SVG Histogram Graphic Replica matching mockup in Purple */}
-                <div className="h-20 w-full bg-white rounded flex items-end justify-between px-1 pt-4 pb-1 border-b border-purple-200">
-                  <div className="w-1 bg-purple-300 h-1" />
-                  <div className="w-1 bg-purple-300 h-1.5" />
-                  <div className="w-1 bg-purple-400 h-2" />
-                  <div className="w-1 bg-purple-400 h-3" />
-                  <div className="w-1 bg-purple-500 h-5" />
-                  <div className="w-1 bg-purple-500 h-8" />
-                  <div className="w-1 bg-[#7c3a7f] h-12" />
-                  <div className="w-1 bg-[#b83c9c] h-16" />
-                  <div className="w-1 bg-[#6b21a8] h-14" />
-                </div>
-
-                {/* Timeline handles */}
-                <div className="flex items-center justify-between text-[11px] font-semibold text-purple-900 mt-1">
-                  <div className="flex items-center gap-1">
-                    <span className="w-2.5 h-2.5 rounded-full border-2 border-purple-600 bg-white inline-block" />
-                    <span>1955</span>
+                {/* Publication Date */}
+                <div className="border-t border-purple-100 pt-4 space-y-2">
+                  <h4 className="text-[11px] font-bold text-purple-900 uppercase tracking-wider">
+                    PUBLICATION DATE
+                  </h4>
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-2 cursor-pointer font-medium">
+                      <input type="radio" name="pub_date" className="accent-purple-600" />
+                      <span>1 year</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer font-medium">
+                      <input type="radio" name="pub_date" className="accent-purple-600" />
+                      <span>5 years</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer font-medium">
+                      <input type="radio" name="pub_date" className="accent-purple-600" />
+                      <span>10 years</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer font-medium">
+                      <input type="radio" name="pub_date" className="accent-purple-600" />
+                      <span>Custom Range</span>
+                    </label>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span>2027</span>
-                    <span className="w-2.5 h-2.5 rounded-full border-2 border-purple-600 bg-white inline-block" />
+                </div>
+
+                {/* Text Availability */}
+                <div className="border-t border-purple-100 pt-4 space-y-2">
+                  <h4 className="text-[11px] font-bold text-purple-900 uppercase tracking-wider">
+                    TEXT AVAILABILITY
+                  </h4>
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-2 cursor-pointer font-medium">
+                      <input type="checkbox" className="accent-purple-600 rounded" />
+                      <span>Abstract</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer font-medium">
+                      <input type="checkbox" className="accent-purple-600 rounded" />
+                      <span>Free full text</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer font-medium">
+                      <input type="checkbox" className="accent-purple-600 rounded" />
+                      <span>Full text</span>
+                    </label>
                   </div>
                 </div>
-              </div>
 
-              {/* Publication Date */}
-              <div className="border-t border-purple-100 pt-4 space-y-2">
-                <h4 className="text-[11px] font-bold text-purple-900 uppercase tracking-wider">
-                  PUBLICATION DATE
-                </h4>
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-2 cursor-pointer font-medium">
-                    <input type="radio" name="pub_date" className="accent-purple-600" />
-                    <span>1 year</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer font-medium">
-                    <input type="radio" name="pub_date" className="accent-purple-600" />
-                    <span>5 years</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer font-medium">
-                    <input type="radio" name="pub_date" className="accent-purple-600" />
-                    <span>10 years</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer font-medium">
-                    <input type="radio" name="pub_date" className="accent-purple-600" />
-                    <span>Custom Range</span>
-                  </label>
+                {/* Article Attribute */}
+                <div className="border-t border-purple-100 pt-4">
+                  <h4 className="text-[11px] font-bold text-purple-900 uppercase tracking-wider">
+                    ARTICLE ATTRIBUTE
+                  </h4>
                 </div>
-              </div>
-
-              {/* Text Availability */}
-              <div className="border-t border-purple-100 pt-4 space-y-2">
-                <h4 className="text-[11px] font-bold text-purple-900 uppercase tracking-wider">
-                  TEXT AVAILABILITY
-                </h4>
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-2 cursor-pointer font-medium">
-                    <input type="checkbox" className="accent-purple-600 rounded" />
-                    <span>Abstract</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer font-medium">
-                    <input type="checkbox" className="accent-purple-600 rounded" />
-                    <span>Free full text</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer font-medium">
-                    <input type="checkbox" className="accent-purple-600 rounded" />
-                    <span>Full text</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Article Attribute */}
-              <div className="border-t border-purple-100 pt-4">
-                <h4 className="text-[11px] font-bold text-purple-900 uppercase tracking-wider">
-                  ARTICLE ATTRIBUTE
-                </h4>
-              </div>
-            </aside>
+              </aside>
+            )}
 
             {/* Right Column: Results List matching mockup screenshot */}
-            <div className="lg:col-span-9 space-y-4">
+            <div className={`${showFilters ? 'lg:col-span-9' : 'lg:col-span-12'} space-y-4`}>
+              {!hasSearched && (
+                <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-4 mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#2b1055]">
+                      Filter Pencarian Lanjutan (Advanced Filter)
+                    </h3>
+                    <p className="text-xs text-gray-600 mt-0.5">
+                      Menampilkan semua publikasi akademik ({filteredJournals.length} dokumen). Gunakan filter di sebelah kiri untuk menyaring.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(false)}
+                    className="text-xs text-purple-700 hover:text-purple-900 font-semibold underline self-start sm:self-auto"
+                  >
+                    Tutup Filter
+                  </button>
+                </div>
+              )}
               {filteredJournals.length === 0 ? (
                 <div className="bg-white border border-purple-100 rounded-2xl p-10 text-center text-gray-600 shadow-xs">
                   <p className="font-bold text-sm text-gray-800">

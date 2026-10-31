@@ -211,36 +211,9 @@ export default function HomePage({ isAuthenticated = false, onLogout }) {
       </main>
 
       {/* Footer in soft purple */}
-      <footer className="w-full bg-[#fbf9fe] border-t border-purple-100 py-10 mt-12 text-xs text-gray-600">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-6 border-b border-purple-100">
-            {/* Left Nav */}
-            <div className="flex flex-wrap gap-x-5 gap-y-2">
-              <span className="cursor-pointer hover:text-purple-700 hover:underline">About us</span>
-              <span className="cursor-pointer hover:text-purple-700 hover:underline">News</span>
-              <span className="cursor-pointer hover:text-purple-700 hover:underline">Careers</span>
-              <span className="cursor-pointer hover:text-purple-700 hover:underline">Help Center</span>
-              <span className="cursor-pointer hover:text-purple-700 hover:underline">Terms</span>
-              <span className="cursor-pointer hover:text-purple-700 hover:underline">Privacy</span>
-              <span className="cursor-pointer hover:text-purple-700 hover:underline">Copyright</span>
-              <span className="cursor-pointer hover:text-purple-700 hover:underline">Imprint</span>
-            </div>
-
-            {/* Right Nav */}
-            <div className="flex flex-wrap gap-x-5 gap-y-2 font-medium text-gray-700">
-              <span className="cursor-pointer hover:text-purple-700 hover:underline">Researchers</span>
-              <span className="cursor-pointer hover:text-purple-700 hover:underline">Q&A</span>
-              <span className="cursor-pointer hover:text-purple-700 hover:underline">Publications</span>
-              <span className="cursor-pointer hover:text-purple-700 hover:underline">Jobs</span>
-              <span className="cursor-pointer hover:text-purple-700 hover:underline">Advertising</span>
-              <span className="cursor-pointer hover:text-purple-700 hover:underline">Recruiting</span>
-            </div>
-          </div>
-
-          <div className="pt-6 flex flex-col sm:flex-row justify-between items-center text-[11px] text-gray-500 gap-2">
-            <p>© 2008-2026 SukaBaca Academic Research. All rights reserved.</p>
-            <p className="text-purple-600 font-medium">IMPAL Coursework Edition • Telkom University</p>
-          </div>
+      <footer className="w-full bg-[#fbf9fe] border-t border-purple-100 py-6 mt-12 text-xs text-gray-600">
+        <div className="max-w-6xl mx-auto px-6 text-center text-[11px]">
+          <p className="text-purple-600 font-medium">IMPAL Coursework Edition • Telkom University</p>
         </div>
       </footer>
     </div>
