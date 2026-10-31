@@ -75,7 +75,7 @@ export default function HomePage({ isAuthenticated = false, onLogout }) {
                     background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
                   }}
                 >
-                  Dashboard ({auth.user || 'Glen'})
+                  Dashboard ({typeof auth.user === 'object' ? (auth.user.username || auth.user.name || 'User') : (auth.user || 'Glen')})
                 </button>
                 <button
                   onClick={() => {
@@ -147,7 +147,7 @@ export default function HomePage({ isAuthenticated = false, onLogout }) {
               Discover research
             </h1>
             <p className="text-sm sm:text-base text-gray-700 leading-relaxed max-w-xl">
-              Access over 160 million publication pages and stay up to date with what's happening in your field.
+              access to many publication pages and stay up to date with what's happening in your field.
             </p>
 
             {/* Search Publications Bar */}

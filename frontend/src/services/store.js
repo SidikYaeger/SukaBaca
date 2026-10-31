@@ -171,29 +171,126 @@ export const store = {
   },
 
   setAuth(user) {
-    const data = { isAuthenticated: !!user, user };
+    const usernameStr = typeof user === 'object' && user !== null ? (user.username || user.name || 'User') : (user || '');
+    const data = { 
+      isAuthenticated: !!usernameStr, 
+      user: usernameStr, 
+      profile: typeof user === 'object' ? user : null 
+    };
     localStorage.setItem('sukabaca_auth', JSON.stringify(data));
     return data;
   },
 
-  async apiLogin(username, password) {
+  async checkServerHealth() {
     try {
-      const res = await fetch('http://localhost:8080/api/auth/login', {
+      const res = await fetch('/api/auth/health', { signal: AbortSignal.timeout(3000) });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.database === 'CONNECTED') {
+        return { connected: true, status: 'CONNECTED', totalUsers: data.totalUsers };
+      }
+      return { connected: false, status: 'DISCONNECTED', message: data.error || 'Database disconnected' };
+    } catch (err) {
+      try {
+        const res2 = await fetch('http://localhost:8080/api/auth/health', { signal: AbortSignal.timeout(3000) });
+        const data2 = await res2.json().catch(() => ({}));
+        if (res2.ok && data2.database === 'CONNECTED') {
+          return { connected: true, status: 'CONNECTED', totalUsers: data2.totalUsers };
+        }
+      } catch (e) {}
+      return { connected: false, status: 'DISCONNECTED', message: 'Backend server offline' };
+    }
+  },
+
+  async apiLogin(username, password) {
+    const payload = { username: username.trim(), password };
+    try {
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify(payload)
       });
-      if (res.ok) {
-        const data = await res.json();
-        return { success: true, username: data.username || username, data };
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.status === 'success') {
+        const userObj = {
+          userId: data.userId || 1,
+          username: data.username || username,
+          name: data.name || username,
+          role: data.role || 'user'
+        };
+        this.setAuth(userObj);
+        return { success: true, user: userObj, username: userObj.username, data };
+      } else if (res.status === 401 || res.status === 400) {
+        return { success: false, message: data.message || 'Username atau password salah' };
       }
-    } catch (err) {
-      // Backend not running locally or network error: fallback to demo credentials
+    } catch (err) {}
+
+    try {
+      const res2 = await fetch('http://localhost:8080/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data2 = await res2.json().catch(() => ({}));
+      if (res2.ok && data2.status === 'success') {
+        const userObj = {
+          userId: data2.userId || 1,
+          username: data2.username || username,
+          name: data2.name || username,
+          role: data2.role || 'user'
+        };
+        this.setAuth(userObj);
+        return { success: true, user: userObj, username: userObj.username, data: data2 };
+      } else {
+        return { success: false, message: data2.message || 'Username atau password salah' };
+      }
+    } catch (err2) {
+      return { 
+        success: false, 
+        message: 'Koneksi ke backend (localhost:8080) gagal. Pastikan backend Spring Boot sedang berjalan.' 
+      };
     }
-    if (username.trim()) {
-      return { success: true, username };
+  },
+
+  async apiRegister(username, password, name = '') {
+    const payload = { 
+      username: username.trim(), 
+      password, 
+      name: name ? name.trim() : username.trim(),
+      role: 'user'
+    };
+
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.status === 'success') {
+        return { success: true, message: data.message || 'Registrasi berhasil' };
+      } else if (data.message) {
+        return { success: false, message: data.message };
+      }
+    } catch (err) {}
+
+    try {
+      const res2 = await fetch('http://localhost:8080/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data2 = await res2.json().catch(() => ({}));
+      if (res2.ok && data2.status === 'success') {
+        return { success: true, message: data2.message || 'Registrasi berhasil' };
+      } else {
+        return { success: false, message: data2.message || 'Registrasi gagal' };
+      }
+    } catch (err2) {
+      return { 
+        success: false, 
+        message: 'Koneksi ke backend (localhost:8080) gagal. Pastikan backend Spring Boot sedang berjalan.' 
+      };
     }
-    return { success: false, message: 'Username and password required' };
   },
 
   clearAuth() {
