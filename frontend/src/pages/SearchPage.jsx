@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
-  Search as SearchIcon, 
   X, 
   Settings, 
   Download, 
@@ -43,13 +42,10 @@ export default function SearchPage({ onLogout }) {
 
   const handleSearchSubmit = (e) => {
     if (e) e.preventDefault();
-    setActiveQuery(searchQuery.trim());
-    if (searchQuery.trim()) {
-      setSearchParams({ q: searchQuery.trim() });
-      setShowFilters(true);
-    } else {
-      setSearchParams({});
-    }
+    const q = searchQuery.trim();
+    setActiveQuery(q);
+    setSearchParams(q ? { q } : {});
+    if (q) setShowFilters(true);
   };
 
   const handleClearSearch = () => {
@@ -63,14 +59,8 @@ export default function SearchPage({ onLogout }) {
   const filteredJournals = journals.filter(j => {
     if (!activeQuery.trim()) return true;
     const q = activeQuery.toLowerCase();
-    const titleMatch = j.title && j.title.toLowerCase().includes(q);
-    const authorMatch = j.author && j.author.toLowerCase().includes(q);
-    const snippetMatch = j.snippet && j.snippet.toLowerCase().includes(q);
-    const categoryMatch = j.category && j.category.toLowerCase().includes(q);
-    const isIotSearch = q === 'iot' || q === 'pedoman';
-    const isPedoman = j.title && j.title.toUpperCase().includes('PEDOMAN');
-
-    return titleMatch || authorMatch || snippetMatch || categoryMatch || (isIotSearch && isPedoman);
+    return [j.title, j.author, j.snippet, j.category].some(f => f?.toLowerCase().includes(q))
+      || ((q === 'iot' || q === 'pedoman') && j.title?.toUpperCase().includes('PEDOMAN'));
   });
 
   const handleCardClick = (journal) => {

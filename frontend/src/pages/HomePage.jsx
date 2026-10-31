@@ -11,11 +11,8 @@ export default function HomePage({ isAuthenticated = false, onLogout }) {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    if (searchKeyword.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchKeyword.trim())}`);
-    } else {
-      navigate('/search');
-    }
+    const q = searchKeyword.trim();
+    navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search');
   };
 
   const handleTopicClick = (topic) => {
