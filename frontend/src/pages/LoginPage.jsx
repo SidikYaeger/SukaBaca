@@ -65,12 +65,6 @@ export default function LoginPage({ onLoginSuccess }) {
     }
   };
 
-  const handleFillSample = () => {
-    setUsername('Glen');
-    setPassword('Besar123');
-    setError('');
-  };
-
   return (
     <div className="flex-1 flex flex-col justify-center items-center bg-[#ededed] p-4 sm:p-6 min-h-screen">
       {/* Centered White Card */}
@@ -178,17 +172,6 @@ export default function LoginPage({ onLoginSuccess }) {
               Register here
             </Link>
           </p>
-        </div>
-
-        {/* Fill sample mockup data helper */}
-        <div className="mt-4 pt-4 border-t border-gray-100 w-full flex justify-center">
-          <button
-            type="button"
-            onClick={handleFillSample}
-            className="text-[11px] text-gray-400 hover:text-purple-600 hover:underline transition-colors"
-          >
-            💡 Isi Data Sesuai Mockup (Glen / Besar123)
-          </button>
         </div>
       </div>
     </div>

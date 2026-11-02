@@ -12,7 +12,6 @@ import {
   Maximize2 
 } from 'lucide-react';
 import SidebarDrawer from '../components/SidebarDrawer';
-import ModalConfirm from '../components/ModalConfirm';
 import { store } from '../services/store';
 
 export default function SearchPage({ onLogout }) {
@@ -24,14 +23,20 @@ export default function SearchPage({ onLogout }) {
   const [showFilters, setShowFilters] = useState(!!initialQuery);
   const [journals, setJournals] = useState([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [modalStep, setModalStep] = useState(0); // 0: none, 1: confirm, 2: success
-  const [selectedJournal, setSelectedJournal] = useState(null);
 
   const navigate = useNavigate();
   const auth = store.getAuth();
 
   useEffect(() => {
-    setJournals(store.getJournals());
+    let isMounted = true;
+    const loadJournals = async () => {
+      const data = await store.fetchJournals();
+      if (isMounted && data) {
+        setJournals(data);
+      }
+    };
+    loadJournals();
+    return () => { isMounted = false; };
   }, []);
 
   useEffect(() => {
@@ -64,18 +69,7 @@ export default function SearchPage({ onLogout }) {
   });
 
   const handleCardClick = (journal) => {
-    setSelectedJournal(journal);
-    setModalStep(1); // SukaBaca confirm summarize modal
-  };
-
-  const handleConfirmSummarize = () => {
-    store.useAiQuota();
-    setModalStep(2); // SukaBaca result modal
-  };
-
-  const handleViewArticle = () => {
-    setModalStep(0);
-    navigate(`/article/${selectedJournal?.id || 1}`);
+    navigate(`/journal/${journal.id}`);
   };
 
   const hasSearched = activeQuery.trim().length > 0;
@@ -473,28 +467,6 @@ export default function SearchPage({ onLogout }) {
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         onLogout={onLogout}
-      />
-
-      {/* SukaBaca Modal Step 1: Apakah anda ingin meringkas <nama jurnal>? (search-2) */}
-      <ModalConfirm
-        isOpen={modalStep === 1}
-        title={`Apakah anda ingin meringkas <${selectedJournal?.title || 'nama jurnal'}>?`}
-        subtitle="Sistem AI SukaBaca akan mengekstrak ringkasan jurnal riset ini."
-        onConfirm={handleConfirmSummarize}
-        onCancel={() => setModalStep(0)}
-        confirmText="Ya"
-        cancelText="Tidak"
-      />
-
-      {/* SukaBaca Modal Step 2: Jurnal sudah teringkas. Tampilkan? (search-3) */}
-      <ModalConfirm
-        isOpen={modalStep === 2}
-        title="Jurnal sudah teringkas"
-        subtitle="Tampilkan hasil ringkasan sekarang?"
-        onConfirm={handleViewArticle}
-        onCancel={() => setModalStep(0)}
-        confirmText="Ya"
-        cancelText="Tidak"
       />
     </div>
   );

@@ -21,20 +21,27 @@ export default function HistoryPage({ onLogout }) {
   ];
 
   useEffect(() => {
-    setJournals(store.getJournals());
+    let isMounted = true;
+    const loadJournals = async () => {
+      const data = await store.fetchJournals();
+      if (isMounted && data) {
+        setJournals(data);
+      }
+    };
+    loadJournals();
+    return () => { isMounted = false; };
   }, []);
 
   const handleDownloadClick = (journal, e) => {
     if (e) e.stopPropagation();
     setSelectedJournal(journal);
-    setModalStep(1); // history-3 modal
+    setModalStep(1);
   };
 
-  const handleConfirmDownload = () => {
+  const handleConfirmDownload = async () => {
     if (selectedJournal) {
-      store.incrementDownload(selectedJournal.id);
+      await store.apiRecordDownload(selectedJournal.id);
       
-      // Trigger download
       const element = document.createElement("a");
       const file = new Blob([
         `===================================================\n` +
@@ -52,12 +59,12 @@ export default function HistoryPage({ onLogout }) {
       element.click();
       document.body.removeChild(element);
     }
-    setModalStep(2); // history-4 modal
+    setModalStep(2);
   };
 
   const handleViewDownloaded = () => {
     setModalStep(0);
-    navigate(`/article/${selectedJournal?.id || 1}`);
+    navigate(`/journal/${selectedJournal?.id || 1}`);
   };
 
   return (
@@ -83,7 +90,7 @@ export default function HistoryPage({ onLogout }) {
               <div 
                 key={item.id} 
                 className="flex flex-col group cursor-pointer"
-                onClick={() => navigate(`/article/${item.id}`)}
+                onClick={() => navigate(`/journal/${item.id}`)}
               >
                 {/* Graphic Cover Thumbnail Card */}
                 <div 
@@ -136,23 +143,19 @@ export default function HistoryPage({ onLogout }) {
         onLogout={onLogout}
       />
 
-      {/* Modal Step 1: Apakah anda ingin mengunduh <nama jurnal>? (history-3) */}
       <ModalConfirm
-        isOpen={modalStep === 1}
-        title={`Apakah anda ingin mengunduh <${selectedJournal?.title || 'nama jurnal'}>?`}
-        subtitle="Berkas ringkasan terstruktur akan diunduh ke perangkat Anda."
-        onConfirm={handleConfirmDownload}
-        onCancel={() => setModalStep(0)}
-        confirmText="Ya"
-        cancelText="Tidak"
-      />
-
-      {/* Modal Step 2: Pengunduhan berhasil. Tampilkan hasil unduhan? (history-4) */}
-      <ModalConfirm
-        isOpen={modalStep === 2}
-        title="Pengunduhan berhasil"
-        subtitle="Tampilkan hasil ringkasan sekarang?"
-        onConfirm={handleViewDownloaded}
+        isOpen={modalStep > 0}
+        title={
+          modalStep === 1
+            ? `Apakah anda ingin mengunduh <${selectedJournal?.title || 'nama jurnal'}>?`
+            : "Pengunduhan berhasil"
+        }
+        subtitle={
+          modalStep === 1
+            ? "Berkas ringkasan terstruktur akan diunduh ke perangkat Anda."
+            : "Buka halaman jurnal sekarang?"
+        }
+        onConfirm={modalStep === 1 ? handleConfirmDownload : handleViewDownloaded}
         onCancel={() => setModalStep(0)}
         confirmText="Ya"
         cancelText="Tidak"

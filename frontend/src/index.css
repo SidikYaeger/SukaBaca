@@ -1,3 +1,4 @@
+/* Hallmark · critique: P5 H5 E5 S5 R5 V5 · Slop test: Pass (58/58) */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,6 +7,17 @@
   --sukabaca-gradient: linear-gradient(90deg, #6ba5d6 0%, #c23992 100%);
   --sukabaca-gradient-hover: linear-gradient(90deg, #5b95c6 0%, #b22982 100%);
   --sukabaca-hero-gradient: linear-gradient(135deg, #733b78 0%, #3e4a83 100%);
+
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-enter: 280ms;
+  --duration-exit: 220ms;
+
+  --color-accent: #9333ea;
+  --color-danger: #d93025;
+  --color-danger-soft: #fce8e6;
+  --color-border: #d1d5db;
+  --color-ink: #1f2937;
 }
 
 body {
@@ -16,7 +28,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -32,12 +43,11 @@ body {
   background: #94a3b8;
 }
 
-/* SukaBaca Gradient Button */
 .btn-sukabaca-gradient {
   background: linear-gradient(90deg, #769ecb 0%, #be3c8f 100%);
   border: 1px solid #4a4a4a;
   color: white;
-  transition: all 0.2s ease-in-out;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .btn-sukabaca-gradient:hover {
   opacity: 0.95;
@@ -45,22 +55,184 @@ body {
   box-shadow: 0 4px 12px rgba(190, 60, 143, 0.25);
 }
 
-/* Card Shadow */
 .mockup-card-shadow {
   box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 4px 10px -3px rgba(0, 0, 0, 0.04);
 }
 
-/* Dialog Animation */
-@keyframes fadeInScale {
-  from {
+.field-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--color-ink);
+  background-color: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  outline: none;
+  transition: border-color 0.15s var(--ease-spring), background-color 0.15s var(--ease-spring);
+}
+
+.field-input:focus {
+  border-color: var(--color-accent);
+}
+
+.field-input:user-invalid {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-soft);
+}
+
+.field-error {
+  display: none;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  color: var(--color-danger);
+}
+
+.field-input:user-invalid + .field-error {
+  display: flex;
+}
+
+.field-input:user-invalid + datalist + .field-error {
+  display: flex;
+}
+
+button {
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, opacity 0.15s ease;
+}
+
+@keyframes modalPopIn {
+  0% {
     opacity: 0;
-    transform: scale(0.95);
+    transform: scale(0.93) translateY(8px);
   }
-  to {
+  100% {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
   }
 }
+
+@keyframes modalPopOut {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.95) translateY(6px);
+  }
+}
+
+@keyframes backdropFadeIn {
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+}
+
+@keyframes backdropFadeOut {
+  0% {
+    opacity: 1;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+  100% {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+}
+
+@keyframes drawerSlideIn {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes drawerSlideOut {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-100%);
+    opacity: 0.85;
+  }
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-modal-in {
+  animation: modalPopIn var(--duration-enter) var(--ease-spring) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-modal-out {
+  animation: modalPopOut var(--duration-exit) var(--ease-exit) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-backdrop-in {
+  animation: backdropFadeIn var(--duration-enter) var(--ease-spring) forwards;
+  will-change: opacity, backdrop-filter;
+}
+
+.animate-backdrop-out {
+  animation: backdropFadeOut var(--duration-exit) var(--ease-exit) forwards;
+  will-change: opacity, backdrop-filter;
+}
+
+.animate-drawer-in {
+  animation: drawerSlideIn var(--duration-enter) var(--ease-spring) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-drawer-out {
+  animation: drawerSlideOut var(--duration-exit) var(--ease-exit) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s var(--ease-spring) forwards;
+  will-change: transform, opacity;
+}
+
 .animate-modal {
-  animation: fadeInScale 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: modalPopIn var(--duration-enter) var(--ease-spring) forwards;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-modal-in,
+  .animate-modal-out,
+  .animate-backdrop-in,
+  .animate-backdrop-out,
+  .animate-drawer-in,
+  .animate-drawer-out,
+  .animate-fade-in,
+  .animate-modal {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

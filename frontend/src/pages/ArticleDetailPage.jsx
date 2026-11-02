@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { Star, Download, Eye, Calendar, User, Send, CheckCircle2, MessageSquare, Sparkles } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Star, Download, Eye, Calendar, User, Send, CheckCircle2, MessageSquare, Sparkles, FileText } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { store } from '../services/store';
 
 export default function ArticleDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const journalId = id || 1;
 
   const [journal, setJournal] = useState(null);
+  const [ringkasan, setRingkasan] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [ratingStats, setRatingStats] = useState({ avg: 5.0, count: 0 });
 
@@ -21,26 +23,36 @@ export default function ArticleDetailPage() {
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
   useEffect(() => {
-    const data = store.getJournalById(journalId);
-    setJournal(data);
-    store.incrementView(journalId);
-
-    const revs = store.getReviews(journalId);
-    setReviews(revs);
-    setRatingStats(store.getAverageRating(journalId));
-
-    const auth = store.getAuth();
-    if (auth.user) {
-      setReviewerName(auth.user);
-    }
+    let isMounted = true;
+    const loadData = async () => {
+      const data = await store.fetchJournalById(journalId);
+      if (isMounted && data) {
+        setJournal(data);
+      }
+      const summary = await store.fetchRingkasan(journalId);
+      if (isMounted) {
+        setRingkasan(summary);
+      }
+      const revsData = await store.fetchReviews(journalId);
+      if (isMounted && revsData) {
+        setReviews(revsData.reviews);
+        setRatingStats({ avg: revsData.averageRating, count: revsData.totalReviews });
+      }
+      const auth = store.getAuth();
+      if (isMounted && auth.user) {
+        setReviewerName(auth.user);
+      }
+    };
+    loadData();
+    return () => { isMounted = false; };
   }, [journalId]);
 
-  const handleAddReview = (e) => {
+  const handleAddReview = async (e) => {
     e.preventDefault();
     if (!comment.trim()) return;
 
     const author = reviewerName.trim() || 'Glen';
-    const newRev = store.addReview({
+    const newRev = await store.apiAddReview({
       journalId: Number(journalId),
       author,
       rating: userRating,
@@ -48,16 +60,16 @@ export default function ArticleDetailPage() {
     });
 
     setReviews([newRev, ...reviews]);
-    setRatingStats(store.getAverageRating(journalId));
+    const updatedStats = store.getAverageRating(journalId);
+    setRatingStats(updatedStats);
     setComment('');
     setReviewSubmitted(true);
     setTimeout(() => setReviewSubmitted(false), 3000);
   };
 
-  const handleDownload = () => {
-    store.incrementDownload(journalId);
-    const updated = store.getJournalById(journalId);
-    setJournal(updated);
+  const handleDownload = async () => {
+    await store.apiRecordDownload(journalId);
+    setJournal(prev => prev ? { ...prev, download: (Number(prev.download) || 0) + 1 } : prev);
 
     // Trigger mock/real file download of the summary
     const element = document.createElement("a");
@@ -70,7 +82,7 @@ export default function ArticleDetailPage() {
       `Tanggal: ${journal?.date || '2026'}\n` +
       `Format: ${journal?.formatFile || 'PDF'}\n\n` +
       `Ringkasan Eksekutif:\n` +
-      `${journal?.content || 'Konten ringkasan...'}\n\n` +
+      `${ringkasan?.isi || journal?.snippet || 'Konten ringkasan...'}\n\n` +
       `Dihasilkan secara otomatis oleh SukaBaca AI Engine.`
     ], { type: 'text/plain;charset=utf-8' });
     element.href = URL.createObjectURL(file);
@@ -140,6 +152,15 @@ export default function ArticleDetailPage() {
             <span>Unduh Ringkasan (.txt)</span>
           </button>
 
+          <button
+            type="button"
+            onClick={() => navigate(`/journal/${journal.id}`)}
+            className="py-2.5 px-5 rounded-xl bg-white text-gray-900 font-semibold text-xs sm:text-sm shadow border border-purple-400 hover:bg-gray-50 active:scale-95 transition-all flex items-center gap-2"
+          >
+            <FileText size={16} strokeWidth={2.5} />
+            <span>Lihat Dokumen</span>
+          </button>
+
           {downloadSuccess && (
             <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1 animate-fade-in">
               <CheckCircle2 size={16} /> Berhasil diunduh!
@@ -171,7 +192,7 @@ export default function ArticleDetailPage() {
             Ringkasan Eksekutif AI
           </h2>
           <p className="text-xs sm:text-sm text-gray-800 leading-relaxed font-normal">
-            {journal.content || journal.snippet}
+            {ringkasan?.isi || journal.snippet}
           </p>
         </section>
 

@@ -9,6 +9,7 @@ import UploadFormPage from './pages/UploadFormPage';
 import SearchPage from './pages/SearchPage';
 import HistoryPage from './pages/HistoryPage';
 import ArticleDetailPage from './pages/ArticleDetailPage';
+import JournalViewPage from './pages/JournalViewPage';
 import { store } from './services/store';
 
 export default function App() {
@@ -92,6 +93,13 @@ export default function App() {
             <HistoryPage 
               onLogout={handleLogout} 
             />
+          } 
+        />
+        
+        <Route 
+          path="/journal/:id" 
+          element={
+            <JournalViewPage />
           } 
         />
         

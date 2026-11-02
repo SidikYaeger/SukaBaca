@@ -1,5 +1,6 @@
 package com.sukabaca.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -13,6 +14,7 @@ public class Journal {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id")
+    @JsonIgnoreProperties({"password", "hibernateLazyInitializer", "handler"})
     private User user;
 
     @Column(nullable = false)
@@ -28,6 +30,16 @@ public class Journal {
     private String content;
 
     private String publishDate;
+
+    @Column(length = 255)
+    private String category;
+
+    @Lob
+    @Column(name = "abstract_text", columnDefinition = "LONGTEXT")
+    private String abstractText;
+
+    @Column(name = "file_name", length = 255)
+    private String fileName;
 
     @Column(name = "format_file", length = 50)
     private String formatFile = "PDF";
@@ -79,6 +91,15 @@ public class Journal {
 
     public String getPublishDate() { return publishDate; }
     public void setPublishDate(String publishDate) { this.publishDate = publishDate; }
+
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
+
+    public String getAbstractText() { return abstractText; }
+    public void setAbstractText(String abstractText) { this.abstractText = abstractText; }
+
+    public String getFileName() { return fileName; }
+    public void setFileName(String fileName) { this.fileName = fileName; }
 
     public Long getDownload() { return download; }
     public void setDownload(Long download) { this.download = download != null ? download : 0L; }

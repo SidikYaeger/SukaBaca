@@ -7,14 +7,32 @@ import com.sukabaca.model.User;
 import com.sukabaca.repository.JournalRepository;
 import com.sukabaca.repository.RingkasanRepository;
 import com.sukabaca.repository.UserRepository;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/journals")
 public class JournalController {
+
+    private static final Path UPLOAD_DIR = Paths.get("uploads");
+    private static final long MAX_FILE_BYTES = 8L * 1024 * 1024;
+    private static final Map<String, String> MEDIA_TYPES = Map.of(
+            "pdf", "application/pdf",
+            "txt", "text/plain;charset=UTF-8",
+            "doc", "application/msword",
+            "docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    );
 
     private final JournalRepository journalRepository;
     private final RingkasanRepository ringkasanRepository;
@@ -49,11 +67,36 @@ public class JournalController {
 
     @PostMapping("/upload")
     public ResponseEntity<?> uploadJournal(@RequestBody Map<String, Object> request) {
-        String title = request.getOrDefault("title", "Untitled Journal").toString();
+        String title = request.getOrDefault("title", "").toString().trim();
+        if (title.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Title is required"));
+        }
         String author = request.getOrDefault("author", "Adira").toString();
-        String content = request.getOrDefault("content", "Journal content text...").toString();
+        String abstractText = request.getOrDefault("abstract", "").toString();
+        String content = request.getOrDefault("content", abstractText.isEmpty() ? "Journal content text..." : abstractText).toString();
         String publishDate = request.getOrDefault("publishDate", "2026").toString();
-        String snippet = content.length() > 100 ? content.substring(0, 100) + "..." : content;
+        String category = request.getOrDefault("category", "Umum").toString();
+        String snippetSource = abstractText.isEmpty() ? content : abstractText;
+        String snippet = snippetSource.length() > 160 ? snippetSource.substring(0, 160) + "..." : snippetSource;
+
+        String originalName = request.containsKey("fileName")
+                ? request.get("fileName").toString().replaceAll("[\\\\/]", "_")
+                : null;
+        String ext = extensionOf(originalName);
+        byte[] fileBytes = null;
+        if (request.containsKey("fileBase64") && !request.get("fileBase64").toString().isEmpty()) {
+            if (ext == null) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Unsupported file type"));
+            }
+            try {
+                fileBytes = Base64.getDecoder().decode(request.get("fileBase64").toString());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Invalid file data"));
+            }
+            if (fileBytes.length > MAX_FILE_BYTES) {
+                return ResponseEntity.status(413).body(Map.of("message", "File exceeds 8 MB limit"));
+            }
+        }
 
         User user = null;
         if (request.containsKey("userId")) {
@@ -64,13 +107,72 @@ public class JournalController {
         }
 
         Journal journal = new Journal(user, title, author, snippet, content, publishDate);
+        journal.setCategory(category);
+        journal.setAbstractText(abstractText.isEmpty() ? null : abstractText);
+        journal.setFormatFile(ext != null ? ext.toUpperCase() : request.getOrDefault("formatFile", "PDF").toString());
         journalRepository.save(journal);
+
+        if (fileBytes != null) {
+            try {
+                Files.createDirectories(UPLOAD_DIR);
+                Files.write(UPLOAD_DIR.resolve(journal.getId() + "." + ext), fileBytes);
+                journal.setFileName(originalName);
+                journalRepository.save(journal);
+            } catch (IOException e) {
+                journalRepository.delete(journal);
+                return ResponseEntity.status(500).body(Map.of("message", "Failed to store file"));
+            }
+        }
 
         return ResponseEntity.ok(Map.of(
                 "status", "success",
                 "message", "Journal uploaded successfully",
                 "journalId", journal.getId()
         ));
+    }
+
+    @GetMapping("/{id}/file")
+    public ResponseEntity<?> getJournalFile(@PathVariable Long id,
+                                            @RequestParam(defaultValue = "false") boolean download) {
+        Optional<Journal> opt = journalRepository.findById(id);
+        if (opt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Journal journal = opt.get();
+        String ext = extensionOf(journal.getFileName());
+        if (ext == null) {
+            return ResponseEntity.notFound().build();
+        }
+        Path path = UPLOAD_DIR.resolve(id + "." + ext);
+        if (!Files.isRegularFile(path)) {
+            return ResponseEntity.notFound().build();
+        }
+        try {
+            byte[] bytes = Files.readAllBytes(path);
+            ContentDisposition disposition = ContentDisposition
+                    .builder(download ? "attachment" : "inline")
+                    .filename(journal.getFileName(), StandardCharsets.UTF_8)
+                    .build();
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(MEDIA_TYPES.get(ext)))
+                    .header("Content-Disposition", disposition.toString())
+                    .header("X-Content-Type-Options", "nosniff")
+                    .body(bytes);
+        } catch (IOException e) {
+            return ResponseEntity.status(500).body(Map.of("message", "Failed to read file"));
+        }
+    }
+
+    private static String extensionOf(String fileName) {
+        if (fileName == null) {
+            return null;
+        }
+        int dot = fileName.lastIndexOf('.');
+        if (dot < 0 || dot == fileName.length() - 1) {
+            return null;
+        }
+        String ext = fileName.substring(dot + 1).toLowerCase();
+        return MEDIA_TYPES.containsKey(ext) ? ext : null;
     }
 
     @PostMapping("/{id}/summarize")

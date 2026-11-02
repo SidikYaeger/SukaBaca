@@ -101,4 +101,35 @@ public class SubscriptionController {
             }
         }).orElse(ResponseEntity.notFound().build());
     }
+
+    @PostMapping("/user/{userId}/use-ai")
+    public ResponseEntity<?> useAiQuotaByUser(@PathVariable Long userId) {
+        Optional<Subscription> subOpt = subscriptionRepository.findByUserId(userId);
+        if (subOpt.isPresent()) {
+            Subscription sub = subOpt.get();
+            boolean success = sub.decrementUsage();
+            if (success) {
+                subscriptionRepository.save(sub);
+                return ResponseEntity.ok(Map.of(
+                        "status", "success",
+                        "remainingUsage", sub.getUsage()
+                ));
+            } else {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "status", "error",
+                        "message", "AI usage quota exhausted. Please upgrade your subscription."
+                ));
+            }
+        }
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isPresent()) {
+            Subscription newSub = new Subscription(userOpt.get(), "active", "free", LocalDateTime.now().plusMonths(1), 9);
+            subscriptionRepository.save(newSub);
+            return ResponseEntity.ok(Map.of(
+                    "status", "success",
+                    "remainingUsage", newSub.getUsage()
+            ));
+        }
+        return ResponseEntity.notFound().build();
+    }
 }

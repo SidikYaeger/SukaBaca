@@ -1,6 +1,3 @@
-// SukaBaca Data & API Store
-// Provides seamless client-side state persistence with full REST API compatibility
-
 const INITIAL_JOURNALS = [
   {
     id: 1,
@@ -156,18 +153,33 @@ const INITIAL_SUBSCRIPTION = {
   periodEnd: '2026-12-31'
 };
 
+const mapBackendJournal = (j) => ({
+  id: j.id,
+  title: j.title,
+  snippet: j.snippet || (j.content ? j.content.slice(0, 120) + '...' : ''),
+  content: j.content,
+  abstract: j.abstractText || null,
+  author: j.author || (j.user ? (j.user.name || j.user.username) : 'Anonim'),
+  date: j.publishDate || (j.createdAt ? j.createdAt.split('T')[0] : '2026'),
+  year: j.publishDate || '2026',
+  formatFile: j.formatFile || 'PDF',
+  views: Number(j.views) || 0,
+  download: Number(j.download) || 0,
+  category: j.category || 'Umum',
+  fileName: j.fileName || null
+});
+
 export const store = {
-  // Auth
   getAuth() {
     const raw = localStorage.getItem('sukabaca_auth');
     if (raw) {
       try {
         return JSON.parse(raw);
       } catch (e) {
-        return { isAuthenticated: false, user: null };
+        return { isAuthenticated: false, user: null, profile: null };
       }
     }
-    return { isAuthenticated: false, user: null };
+    return { isAuthenticated: false, user: null, profile: null };
   },
 
   setAuth(user) {
@@ -179,6 +191,10 @@ export const store = {
     };
     localStorage.setItem('sukabaca_auth', JSON.stringify(data));
     return data;
+  },
+
+  clearAuth() {
+    localStorage.removeItem('sukabaca_auth');
   },
 
   async checkServerHealth() {
@@ -246,7 +262,7 @@ export const store = {
     } catch (err2) {
       return { 
         success: false, 
-        message: 'Koneksi ke backend (localhost:8080) gagal. Pastikan backend Spring Boot sedang berjalan.' 
+        message: 'Koneksi ke backend gagal. Pastikan backend Spring Boot sedang berjalan.' 
       };
     }
   },
@@ -288,25 +304,62 @@ export const store = {
     } catch (err2) {
       return { 
         success: false, 
-        message: 'Koneksi ke backend (localhost:8080) gagal. Pastikan backend Spring Boot sedang berjalan.' 
+        message: 'Koneksi ke backend gagal. Pastikan backend Spring Boot sedang berjalan.' 
       };
     }
   },
 
-  clearAuth() {
-    localStorage.removeItem('sukabaca_auth');
+  async fetchJournals(search = '', userId = null) {
+    try {
+      const url = new URL('/api/journals', window.location.origin);
+      if (search) url.searchParams.set('search', search);
+      if (userId) url.searchParams.set('userId', userId);
+
+      const res = await fetch(url.toString());
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped = data.map(mapBackendJournal);
+          localStorage.setItem('sukabaca_journals', JSON.stringify(mapped));
+          return mapped;
+        }
+      }
+    } catch (e) {}
+    return this.getJournals();
   },
 
-  // Journals
   getJournals() {
     const raw = localStorage.getItem('sukabaca_journals');
     if (raw) {
       try {
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
       } catch (e) {}
     }
     localStorage.setItem('sukabaca_journals', JSON.stringify(INITIAL_JOURNALS));
     return INITIAL_JOURNALS;
+  },
+
+  async fetchJournalById(id) {
+    try {
+      const res = await fetch(`/api/journals/${id}`);
+      if (res.ok) {
+        const j = await res.json();
+        const mapped = mapBackendJournal(j);
+        const currentList = this.getJournals();
+        const index = currentList.findIndex(item => String(item.id) === String(id));
+        if (index >= 0) {
+          currentList[index] = { ...currentList[index], ...mapped };
+        } else {
+          currentList.unshift(mapped);
+        }
+        localStorage.setItem('sukabaca_journals', JSON.stringify(currentList));
+        return mapped;
+      }
+    } catch (e) {}
+    return this.getJournalById(id);
   },
 
   getJournalById(id) {
@@ -314,7 +367,132 @@ export const store = {
     return list.find(j => String(j.id) === String(id)) || list[0];
   },
 
+  async apiUploadJournal(journalData) {
+    const auth = this.getAuth();
+    const userId = journalData.userId || auth.profile?.userId || auth.profile?.id || 1;
+    const payload = {
+      title: journalData.title || 'Untitled Journal',
+      author: journalData.author || auth.user || 'Adira',
+      abstract: journalData.abstract || '',
+      content: journalData.content || journalData.abstract || 'Konten jurnal...',
+      category: journalData.category || 'Umum',
+      publishDate: journalData.publishDate || new Date().getFullYear().toString(),
+      formatFile: journalData.formatFile || 'PDF',
+      fileName: journalData.fileName || undefined,
+      fileBase64: journalData.fileBase64 || undefined,
+      userId
+    };
+
+    let backendId = null;
+    let failure = null;
+    try {
+      const res = await fetch('/api/journals/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        backendId = data.journalId;
+      } else {
+        const err = await res.json().catch(() => ({}));
+        failure = err.message || 'Gagal mengunggah jurnal';
+      }
+    } catch (e) {}
+    if (failure) {
+      throw new Error(failure);
+    }
+
+    const newId = backendId || Date.now();
+    const snippetSource = payload.abstract || payload.content;
+    const newJournal = {
+      id: newId,
+      title: payload.title,
+      author: payload.author,
+      snippet: snippetSource.length > 160 ? snippetSource.slice(0, 160) + '...' : snippetSource,
+      content: payload.content,
+      abstract: payload.abstract || null,
+      publishDate: payload.publishDate,
+      year: payload.publishDate,
+      date: new Date().toISOString().split('T')[0],
+      formatFile: payload.fileName ? payload.fileName.split('.').pop().toUpperCase() : payload.formatFile,
+      views: 0,
+      download: 0,
+      category: payload.category,
+      fileName: backendId ? (payload.fileName || null) : null
+    };
+
+    const list = this.getJournals();
+    list.unshift(newJournal);
+    localStorage.setItem('sukabaca_journals', JSON.stringify(list));
+
+    return newJournal;
+  },
+
+  async apiSummarizeJournal(id, model = 'gemini-1.5-flash') {
+    const journal = this.getJournalById(id);
+    const source = (journal.abstract || journal.content || journal.snippet || '')
+      .replace(/^abstrak:\s*/i, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const sentences = source.split(/(?<=[.!?])\s+/).filter(Boolean);
+    const isi = `Ringkasan Eksekutif: ${sentences.slice(0, 3).join(' ')}`;
+
+    let saved = null;
+    try {
+      const res = await fetch(`/api/journals/${id}/summarize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, isi })
+      });
+      if (res.ok) {
+        saved = await res.json();
+      }
+    } catch (e) {}
+
+    const result = {
+      isi: saved?.isi || isi,
+      model: saved?.model || model,
+      tanggalDibuat: saved?.tanggalDibuat || new Date().toISOString()
+    };
+    localStorage.setItem(`sukabaca_ringkasan_${id}`, JSON.stringify(result));
+    return result;
+  },
+
+  async fetchRingkasan(id) {
+    try {
+      const res = await fetch(`/api/journals/${id}/ringkasan`);
+      if (res.ok) {
+        const list = await res.json();
+        if (Array.isArray(list) && list.length > 0) {
+          const latest = list[list.length - 1];
+          const result = {
+            isi: latest.isi,
+            model: latest.model,
+            tanggalDibuat: latest.tanggalDibuat
+          };
+          localStorage.setItem(`sukabaca_ringkasan_${id}`, JSON.stringify(result));
+          return result;
+        }
+      }
+    } catch (e) {}
+    const raw = localStorage.getItem(`sukabaca_ringkasan_${id}`);
+    if (raw) {
+      try {
+        return JSON.parse(raw);
+      } catch (e) {}
+    }
+    return null;
+  },
+
+  getJournalFileUrl(id, download = false) {
+    return `/api/journals/${id}/file${download ? '?download=true' : ''}`;
+  },
+
   addJournal(journal) {
+    const auth = this.getAuth();
+    const userId = journal.userId || auth.profile?.userId || auth.profile?.id || 1;
+    this.apiUploadJournal({ ...journal, userId });
     const list = this.getJournals();
     const newJournal = {
       id: Date.now(),
@@ -329,25 +507,71 @@ export const store = {
     return newJournal;
   },
 
-  incrementView(id) {
+  async apiRecordView(id) {
+    try {
+      fetch(`/api/journals/${id}/view`, { method: 'POST' }).catch(() => {});
+    } catch (e) {}
     const list = this.getJournals();
     const target = list.find(j => String(j.id) === String(id));
     if (target) {
-      target.views = (target.views || 0) + 1;
+      target.views = (Number(target.views) || 0) + 1;
+      localStorage.setItem('sukabaca_journals', JSON.stringify(list));
+    }
+  },
+
+  incrementView(id) {
+    this.apiRecordView(id);
+  },
+
+  async apiRecordDownload(id) {
+    try {
+      fetch(`/api/journals/${id}/download`, { method: 'POST' }).catch(() => {});
+    } catch (e) {}
+    const list = this.getJournals();
+    const target = list.find(j => String(j.id) === String(id));
+    if (target) {
+      target.download = (Number(target.download) || 0) + 1;
       localStorage.setItem('sukabaca_journals', JSON.stringify(list));
     }
   },
 
   incrementDownload(id) {
-    const list = this.getJournals();
-    const target = list.find(j => String(j.id) === String(id));
-    if (target) {
-      target.download = (target.download || 0) + 1;
-      localStorage.setItem('sukabaca_journals', JSON.stringify(list));
-    }
+    this.apiRecordDownload(id);
   },
 
-  // Reviews
+  async fetchReviews(journalId) {
+    try {
+      const res = await fetch(`/api/reviews/journal/${journalId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const mapped = (data.reviews || []).map(r => ({
+          id: r.reviewId || r.id,
+          journalId: Number(journalId),
+          userId: r.user?.id || 1,
+          author: r.author || r.user?.name || r.user?.username || 'User',
+          rating: Number(r.rating) || 5,
+          komentar: r.komentar || '',
+          createdAt: r.tanggalReview ? new Date(r.tanggalReview).toLocaleString('id-ID') : (r.createdAt || 'Baru saja')
+        }));
+        const allCached = this.getReviews();
+        const rest = allCached.filter(r => String(r.journalId) !== String(journalId));
+        localStorage.setItem('sukabaca_reviews', JSON.stringify([...mapped, ...rest]));
+        return {
+          totalReviews: data.totalReviews || mapped.length,
+          averageRating: data.averageRating || 5.0,
+          reviews: mapped
+        };
+      }
+    } catch (e) {}
+
+    const localList = this.getReviews(journalId);
+    return {
+      totalReviews: localList.length,
+      averageRating: this.getAverageRating(journalId).avg,
+      reviews: localList
+    };
+  },
+
   getReviews(journalId) {
     const raw = localStorage.getItem('sukabaca_reviews');
     let list = INITIAL_REVIEWS;
@@ -364,7 +588,39 @@ export const store = {
     return list;
   },
 
-  addReview(review) {
+  async apiAddReview(review) {
+    const auth = this.getAuth();
+    const userId = review.userId || auth.profile?.userId || auth.profile?.id || 1;
+    const payload = {
+      userId,
+      journalId: Number(review.journalId),
+      rating: Number(review.rating) || 5,
+      komentar: review.komentar || ''
+    };
+
+    let backendReviewId = null;
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        backendReviewId = data.reviewId;
+      }
+    } catch (e) {}
+
+    const newRev = {
+      id: backendReviewId || Date.now(),
+      journalId: payload.journalId,
+      userId,
+      author: review.author || auth.user || 'User',
+      rating: payload.rating,
+      komentar: payload.komentar,
+      createdAt: new Date().toLocaleString('id-ID')
+    };
+
     const raw = localStorage.getItem('sukabaca_reviews');
     let list = INITIAL_REVIEWS;
     if (raw) {
@@ -372,14 +628,13 @@ export const store = {
         list = JSON.parse(raw);
       } catch (e) {}
     }
-    const newReview = {
-      id: Date.now(),
-      createdAt: new Date().toLocaleString('id-ID'),
-      ...review
-    };
-    list.unshift(newReview);
+    list.unshift(newRev);
     localStorage.setItem('sukabaca_reviews', JSON.stringify(list));
-    return newReview;
+    return newRev;
+  },
+
+  addReview(review) {
+    return this.apiAddReview(review);
   },
 
   getAverageRating(journalId) {
@@ -392,7 +647,29 @@ export const store = {
     };
   },
 
-  // Subscription / Quota
+  async fetchSubscription(userId = null) {
+    const auth = this.getAuth();
+    const uid = userId || auth.profile?.userId || auth.profile?.id || 1;
+    try {
+      const res = await fetch(`/api/subscriptions/user/${uid}`);
+      if (res.ok) {
+        const data = await res.json();
+        const isPro = String(data.plan).toLowerCase() === 'pro';
+        const subObj = {
+          subscriptionId: data.subscriptionId,
+          plan: isPro ? 'Ultra Academic Pro' : 'Free Academic',
+          status: data.status || 'active',
+          dailyQuota: isPro ? 999 : 10,
+          usedToday: isPro ? 0 : Math.max(0, 10 - (data.usage != null ? data.usage : 10)),
+          periodEnd: data.currentPeriodEnd ? data.currentPeriodEnd.split('T')[0] : '2026-12-31'
+        };
+        localStorage.setItem('sukabaca_subscription', JSON.stringify(subObj));
+        return subObj;
+      }
+    } catch (e) {}
+    return this.getSubscription();
+  },
+
   getSubscription() {
     const raw = localStorage.getItem('sukabaca_subscription');
     if (raw) {
@@ -404,17 +681,33 @@ export const store = {
     return INITIAL_SUBSCRIPTION;
   },
 
-  useAiQuota() {
+  async useAiQuota() {
+    const auth = this.getAuth();
+    const uid = auth.profile?.userId || auth.profile?.id || 1;
+    try {
+      fetch(`/api/subscriptions/user/${uid}/use-ai`, { method: 'POST' }).catch(() => {});
+    } catch (e) {}
+
     const sub = this.getSubscription();
-    if (sub.usedToday < sub.dailyQuota) {
+    if (sub.dailyQuota > sub.usedToday || sub.dailyQuota >= 999) {
       sub.usedToday += 1;
       localStorage.setItem('sukabaca_subscription', JSON.stringify(sub));
-      return { success: true, remaining: sub.dailyQuota - sub.usedToday };
+      return { success: true, remaining: Math.max(0, sub.dailyQuota - sub.usedToday) };
     }
     return { success: false, remaining: 0 };
   },
 
-  upgradeSubscription(planName = 'Ultra Unlimited') {
+  async upgradeSubscription(planName = 'Ultra Academic Pro') {
+    const auth = this.getAuth();
+    const uid = auth.profile?.userId || auth.profile?.id || 1;
+    try {
+      await fetch('/api/subscriptions/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: uid, plan: 'pro' })
+      });
+    } catch (e) {}
+
     const sub = {
       plan: planName,
       status: 'active',
