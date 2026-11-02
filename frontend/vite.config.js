@@ -14,6 +14,7 @@ export default defineConfig({
       }
     },
     allowedHosts: [
+      'chemicals-survive-gravy.ngrok-free.dev',
       'calisthenic-erika-prostomial.ngrok-free.dev',
       '.ngrok-free.dev',
       '.ngrok.io',
@@ -32,6 +33,7 @@ export default defineConfig({
       }
     },
     allowedHosts: [
+      'chemicals-survive-gravy.ngrok-free.dev',
       'calisthenic-erika-prostomial.ngrok-free.dev',
       '.ngrok-free.dev',
       '.ngrok.io',
