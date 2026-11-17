@@ -2,6 +2,7 @@ package com.sukabaca.controller;
 
 import com.sukabaca.model.User;
 import com.sukabaca.repository.UserRepository;
+import com.sukabaca.security.PasswordHasher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,7 +53,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("Uji Login Valid dari Database")
     void testDatabaseLoginSuccess() {
-        User dbUser = new User("Adira", "Password123", "Adira Pratama", "user");
+        User dbUser = new User("Adira", PasswordHasher.hash("Password123"), "Adira Pratama", "user");
         when(userRepository.findByUsername("Adira")).thenReturn(Optional.of(dbUser));
 
         ResponseEntity<?> response = authController.login(Map.of(
@@ -67,7 +68,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("Uji Login Gagal - Password Salah")
     void testLoginInvalidPassword() {
-        User dbUser = new User("Adira", "PasswordBenar", "Adira Pratama", "user");
+        User dbUser = new User("Adira", PasswordHasher.hash("PasswordBenar"), "Adira Pratama", "user");
         when(userRepository.findByUsername("Adira")).thenReturn(Optional.of(dbUser));
 
         ResponseEntity<?> response = authController.login(Map.of(

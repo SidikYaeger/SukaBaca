@@ -1,9 +1,13 @@
 package com.sukabaca.controller;
 
+import com.sukabaca.exception.ApiException;
 import com.sukabaca.model.Subscription;
 import com.sukabaca.model.User;
 import com.sukabaca.repository.SubscriptionRepository;
 import com.sukabaca.repository.UserRepository;
+import com.sukabaca.security.TokenService;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,41 +29,41 @@ public class SubscriptionController {
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<?> getSubscriptionByUserId(@PathVariable Long userId) {
+    public ResponseEntity<?> getSubscriptionByUserId(@PathVariable Long userId, HttpServletRequest request) {
+        User actor = TokenService.requireUser(request, userRepository);
+        if (!actor.getId().equals(userId) && !"admin".equalsIgnoreCase(actor.getRole())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Tidak diizinkan melihat langganan pengguna lain");
+        }
         Optional<Subscription> subOpt = subscriptionRepository.findByUserId(userId);
         if (subOpt.isPresent()) {
-            return ResponseEntity.ok(subOpt.get());
+            Subscription sub = subOpt.get();
+            if (sub.refreshDailyQuotaIfNeeded()) {
+                subscriptionRepository.save(sub);
+            }
+            return ResponseEntity.ok(sub);
         }
-        Optional<User> userOpt = userRepository.findById(userId);
-        if (userOpt.isPresent()) {
-            Subscription newSub = new Subscription(userOpt.get(), "active", "free", LocalDateTime.now().plusMonths(1), 10);
-            subscriptionRepository.save(newSub);
-            return ResponseEntity.ok(newSub);
-        }
-        return ResponseEntity.notFound().build();
+        Subscription newSub = new Subscription(actor, "active", "free", LocalDateTime.now().plusMonths(1), 10);
+        subscriptionRepository.save(newSub);
+        return ResponseEntity.ok(newSub);
     }
 
     @PostMapping("/checkout")
-    public ResponseEntity<?> createCheckoutSession(@RequestBody Map<String, Object> request) {
-        if (!request.containsKey("userId")) {
-            return ResponseEntity.badRequest().body(Map.of("message", "userId is required"));
+    public ResponseEntity<?> createCheckoutSession(@RequestBody(required = false) Map<String, Object> requestBody,
+                                                   HttpServletRequest request) {
+        User user = TokenService.requireUser(request, userRepository);
+        String requestedPlan = requestBody != null && requestBody.containsKey("plan")
+                ? String.valueOf(requestBody.get("plan")).trim().toLowerCase()
+                : "pro";
+        if (!"pro".equals(requestedPlan) && !"free".equals(requestedPlan)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Paket langganan harus 'free' atau 'pro'");
         }
 
-        Long userId = Long.valueOf(request.get("userId").toString());
-        Optional<User> userOpt = userRepository.findById(userId);
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "User not found"));
-        }
-
-        User user = userOpt.get();
-        String plan = request.containsKey("plan") ? request.get("plan").toString().toLowerCase() : "pro";
-        int usage = "pro".equalsIgnoreCase(plan) ? -1 : (request.containsKey("usage") ? Integer.parseInt(request.get("usage").toString()) : 10);
-
-        Subscription subscription = subscriptionRepository.findByUserId(userId)
-                .orElse(new Subscription(user, "active", plan, LocalDateTime.now().plusMonths(1), usage));
+        int usage = "pro".equals(requestedPlan) ? -1 : 10;
+        Subscription subscription = subscriptionRepository.findByUserId(user.getId())
+                .orElse(new Subscription(user, "active", requestedPlan, LocalDateTime.now().plusMonths(1), usage));
 
         subscription.setStatus("active");
-        subscription.setPlan(plan);
+        subscription.setPlan(requestedPlan);
         subscription.setCurrentPeriodEnd(LocalDateTime.now().plusMonths(1));
         subscription.setUsage(usage);
 
@@ -77,65 +81,63 @@ public class SubscriptionController {
     }
 
     @PostMapping("/{id}/cancel")
-    public ResponseEntity<?> cancelSubscription(@PathVariable Long id) {
-        return subscriptionRepository.findById(id).map(sub -> {
-            sub.cancelSubscription();
-            subscriptionRepository.save(sub);
-            return ResponseEntity.ok(Map.of(
-                    "status", "success",
-                    "message", "Subscription canceled successfully",
-                    "subscriptionId", sub.getSubscriptionId()
-            ));
-        }).orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<?> cancelSubscription(@PathVariable Long id, HttpServletRequest request) {
+        User actor = TokenService.requireUser(request, userRepository);
+        Subscription sub = subscriptionRepository.findById(id)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Langganan tidak ditemukan"));
+        if (!sub.getUser().getId().equals(actor.getId()) && !"admin".equalsIgnoreCase(actor.getRole())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Tidak diizinkan membatalkan langganan ini");
+        }
+        sub.cancelSubscription();
+        subscriptionRepository.save(sub);
+        return ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "Langganan Pro dibatalkan. Akun kembali ke paket Free (10 kuota/hari).",
+                "subscriptionId", sub.getSubscriptionId(),
+                "plan", sub.getPlan(),
+                "remainingUsage", sub.getUsage()
+        ));
     }
 
     @PostMapping("/{id}/use-ai")
-    public ResponseEntity<?> useAiQuota(@PathVariable Long id) {
-        return subscriptionRepository.findById(id).map(sub -> {
-            boolean success = sub.decrementUsage();
-            if (success) {
-                subscriptionRepository.save(sub);
-                return ResponseEntity.ok(Map.of(
-                        "status", "success",
-                        "remainingUsage", sub.getUsage()
-                ));
-            } else {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "status", "error",
-                        "message", "AI usage quota exhausted. Please upgrade your subscription."
-                ));
-            }
-        }).orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<?> useAiQuota(@PathVariable Long id, HttpServletRequest request) {
+        User actor = TokenService.requireUser(request, userRepository);
+        Subscription sub = subscriptionRepository.findById(id)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Langganan tidak ditemukan"));
+        if (!sub.getUser().getId().equals(actor.getId()) && !"admin".equalsIgnoreCase(actor.getRole())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Akses kuota ditolak");
+        }
+        if (sub.decrementUsage()) {
+            subscriptionRepository.save(sub);
+            return ResponseEntity.ok(Map.of(
+                    "status", "success",
+                    "remainingUsage", sub.getUsage()
+            ));
+        }
+        return ResponseEntity.badRequest().body(Map.of(
+                "status", "error",
+                "message", "Kuota harian AI telah habis. Silakan upgrade ke paket Pro."
+        ));
     }
 
     @PostMapping("/user/{userId}/use-ai")
-    public ResponseEntity<?> useAiQuotaByUser(@PathVariable Long userId) {
-        Optional<Subscription> subOpt = subscriptionRepository.findByUserId(userId);
-        if (subOpt.isPresent()) {
-            Subscription sub = subOpt.get();
-            boolean success = sub.decrementUsage();
-            if (success) {
-                subscriptionRepository.save(sub);
-                return ResponseEntity.ok(Map.of(
-                        "status", "success",
-                        "remainingUsage", sub.getUsage()
-                ));
-            } else {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "status", "error",
-                        "message", "AI usage quota exhausted. Please upgrade your subscription."
-                ));
-            }
+    public ResponseEntity<?> useAiQuotaByUser(@PathVariable Long userId, HttpServletRequest request) {
+        User actor = TokenService.requireUser(request, userRepository);
+        if (!actor.getId().equals(userId) && !"admin".equalsIgnoreCase(actor.getRole())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Akses kuota ditolak");
         }
-        Optional<User> userOpt = userRepository.findById(userId);
-        if (userOpt.isPresent()) {
-            Subscription newSub = new Subscription(userOpt.get(), "active", "free", LocalDateTime.now().plusMonths(1), 9);
-            subscriptionRepository.save(newSub);
+        Subscription sub = subscriptionRepository.findByUserId(userId)
+                .orElseGet(() -> new Subscription(actor, "active", "free", LocalDateTime.now().plusMonths(1), 10));
+        if (sub.decrementUsage()) {
+            subscriptionRepository.save(sub);
             return ResponseEntity.ok(Map.of(
                     "status", "success",
-                    "remainingUsage", newSub.getUsage()
+                    "remainingUsage", sub.getUsage()
             ));
         }
-        return ResponseEntity.notFound().build();
+        return ResponseEntity.badRequest().body(Map.of(
+                "status", "error",
+                "message", "Kuota harian AI telah habis. Silakan upgrade ke paket Pro."
+        ));
     }
 }

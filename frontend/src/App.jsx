@@ -10,6 +10,7 @@ import SearchPage from './pages/SearchPage';
 import HistoryPage from './pages/HistoryPage';
 import ArticleDetailPage from './pages/ArticleDetailPage';
 import JournalViewPage from './pages/JournalViewPage';
+import ProtectedRoute from './components/ProtectedRoute';
 import { store } from './services/store';
 
 export default function App() {
@@ -56,25 +57,27 @@ export default function App() {
         <Route 
           path="/register" 
           element={
-            <RegisterPage 
-              onRegisterSuccess={(username) => console.log('Registered', username)} 
-            />
+            <RegisterPage />
           } 
         />
         
         <Route 
           path="/upload" 
           element={
-            <UploadHubPage 
-              onLogout={handleLogout} 
-            />
+            <ProtectedRoute>
+              <UploadHubPage 
+                onLogout={handleLogout} 
+              />
+            </ProtectedRoute>
           } 
         />
         
         <Route 
           path="/upload-form" 
           element={
-            <UploadFormPage />
+            <ProtectedRoute>
+              <UploadFormPage />
+            </ProtectedRoute>
           } 
         />
         
@@ -90,9 +93,11 @@ export default function App() {
         <Route 
           path="/history" 
           element={
-            <HistoryPage 
-              onLogout={handleLogout} 
-            />
+            <ProtectedRoute>
+              <HistoryPage 
+                onLogout={handleLogout} 
+              />
+            </ProtectedRoute>
           } 
         />
         

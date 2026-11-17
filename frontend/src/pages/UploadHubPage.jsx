@@ -10,6 +10,7 @@ export default function UploadHubPage({ onLogout }) {
   const [subscription, setSubscription] = useState(store.getSubscription());
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeSuccess, setUpgradeSuccess] = useState(false);
+  const [subError, setSubError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -25,6 +26,7 @@ export default function UploadHubPage({ onLogout }) {
   }, []);
 
   const handleUpgrade = async () => {
+    setSubError('');
     try {
       const updated = await store.upgradeSubscription('Ultra Academic Pro');
       setSubscription(updated);
@@ -32,11 +34,29 @@ export default function UploadHubPage({ onLogout }) {
       setTimeout(() => {
         setUpgradeSuccess(false);
         setShowUpgradeModal(false);
-      }, 1500);
-    } catch (e) {
-      setShowUpgradeModal(false);
+      }, 1200);
+    } catch (err) {
+      setSubError(err.message || 'Gagal memperbarui langganan');
     }
   };
+
+  const handleCancelSubscription = async () => {
+    if (!subscription.subscriptionId) return;
+    setSubError('');
+    try {
+      const updated = await store.apiCancelSubscription(subscription.subscriptionId);
+      setSubscription(updated);
+      setUpgradeSuccess(true);
+      setTimeout(() => {
+        setUpgradeSuccess(false);
+        setShowUpgradeModal(false);
+      }, 1200);
+    } catch (err) {
+      setSubError(err.message || 'Gagal membatalkan langganan');
+    }
+  };
+
+  const isPro = subscription.rawPlan === 'pro' || subscription.dailyQuota >= 999;
 
   const remainingQuota = Math.max(0, subscription.dailyQuota - subscription.usedToday);
   const quotaPercent = subscription.dailyQuota > 0
@@ -120,7 +140,7 @@ export default function UploadHubPage({ onLogout }) {
               onClick={() => setShowUpgradeModal(true)}
               className="text-purple-700 font-bold hover:underline"
             >
-              Upgrade Kuota
+              {isPro ? 'Kelola Paket Pro' : 'Upgrade Kuota'}
             </button>
           </div>
         </div>
@@ -166,9 +186,12 @@ export default function UploadHubPage({ onLogout }) {
       {/* Upgrade Subscription Modal */}
       <UpgradeModal
         isOpen={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
+        onClose={() => { setShowUpgradeModal(false); setSubError(''); }}
         onUpgrade={handleUpgrade}
+        onCancelPlan={handleCancelSubscription}
+        isPro={isPro}
         upgradeSuccess={upgradeSuccess}
+        errorMessage={subError}
       />
 
       {/* Sidebar Drawer */}

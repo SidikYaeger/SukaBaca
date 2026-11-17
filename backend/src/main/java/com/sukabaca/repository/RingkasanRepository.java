@@ -8,4 +8,5 @@ import java.util.Optional;
 public interface RingkasanRepository extends JpaRepository<Ringkasan, Long> {
     List<Ringkasan> findByJournalId(Long journalId);
     Optional<Ringkasan> findTopByJournalIdOrderByTanggalDibuatDesc(Long journalId);
+    void deleteByJournalId(Long journalId);
 }

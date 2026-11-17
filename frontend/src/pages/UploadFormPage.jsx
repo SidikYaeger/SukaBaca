@@ -59,6 +59,7 @@ export default function UploadFormPage() {
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState(auth.profile?.name || auth.user || '');
   const [category, setCategory] = useState('');
+  const [publishDate, setPublishDate] = useState(new Date().getFullYear().toString());
   const [abstractText, setAbstractText] = useState('');
   const [modalStep, setModalStep] = useState(0);
   const [uploading, setUploading] = useState(false);
@@ -72,6 +73,11 @@ export default function UploadFormPage() {
       setFileError('Format berkas harus .pdf, .docx, .doc, atau .txt');
       return;
     }
+    if (selected.size === 0) {
+      setFile(null);
+      setFileError('Berkas tidak boleh kosong');
+      return;
+    }
     if (selected.size > MAX_FILE_BYTES) {
       setFile(null);
       setFileError('Ukuran berkas maksimal 8 MB');
@@ -80,7 +86,7 @@ export default function UploadFormPage() {
     setFileError('');
     setFile(selected);
     if (!title.trim()) {
-      setTitle(selected.name.replace(/\.[^/.]+$/, ''));
+      setTitle(selected.name.replace(/\.[^/.]+$/, '').slice(0, 255));
     }
   };
 
@@ -103,6 +109,18 @@ export default function UploadFormPage() {
       setFileError('Pilih berkas jurnal terlebih dahulu');
       return;
     }
+    if (title.trim().length < 3 || author.trim().length < 2 || category.trim().length < 2) {
+      setUploadError('Judul (min. 3 karakter), penulis, dan kategori wajib diisi dengan benar');
+      return;
+    }
+    if (!/^(19|20)\d{2}$/.test(publishDate.trim())) {
+      setUploadError('Tahun terbit harus 4 digit angka (contoh: 2026)');
+      return;
+    }
+    if (abstractText.trim().length < 30) {
+      setUploadError('Abstract minimal 30 karakter');
+      return;
+    }
     setUploadError('');
     setModalStep(1);
   };
@@ -119,6 +137,7 @@ export default function UploadFormPage() {
         title: title.trim(),
         author: author.trim(),
         category: category.trim() || 'Umum',
+        publishDate: publishDate.trim(),
         abstract: abstractText.trim(),
         content,
         fileName: file.name,
@@ -219,13 +238,15 @@ export default function UploadFormPage() {
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Masukkan judul jurnal..."
                   required
+                  minLength={3}
+                  maxLength={255}
                   aria-errormessage="title-error"
                   className="field-input"
                 />
-                <FieldError id="title-error">Judul wajib diisi.</FieldError>
+                <FieldError id="title-error">Judul wajib diisi (minimal 3 karakter).</FieldError>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 <div>
                   <label htmlFor="journal-author" className="block text-[11px] font-semibold text-gray-700 mb-1">
                     Penulis
@@ -237,6 +258,8 @@ export default function UploadFormPage() {
                     onChange={(e) => setAuthor(e.target.value)}
                     placeholder="Nama penulis"
                     required
+                    minLength={2}
+                    maxLength={150}
                     aria-errormessage="author-error"
                     className="field-input"
                   />
@@ -255,6 +278,8 @@ export default function UploadFormPage() {
                     onChange={(e) => setCategory(e.target.value)}
                     placeholder="Pilih atau ketik kategori"
                     required
+                    minLength={2}
+                    maxLength={100}
                     aria-errormessage="category-error"
                     className="field-input"
                   />
@@ -264,6 +289,25 @@ export default function UploadFormPage() {
                     ))}
                   </datalist>
                   <FieldError id="category-error">Kategori wajib diisi.</FieldError>
+                </div>
+
+                <div>
+                  <label htmlFor="journal-year" className="block text-[11px] font-semibold text-gray-700 mb-1">
+                    Tahun Terbit
+                  </label>
+                  <input
+                    id="journal-year"
+                    type="text"
+                    value={publishDate}
+                    onChange={(e) => setPublishDate(e.target.value)}
+                    placeholder="2026"
+                    required
+                    pattern="^(19|20)\d{2}$"
+                    maxLength={4}
+                    aria-errormessage="year-error"
+                    className="field-input"
+                  />
+                  <FieldError id="year-error">Tahun harus 4 digit (mis. 2026).</FieldError>
                 </div>
               </div>
 
@@ -279,6 +323,7 @@ export default function UploadFormPage() {
                   rows={5}
                   required
                   minLength={30}
+                  maxLength={10000}
                   aria-errormessage="abstract-error"
                   className="field-input resize-y"
                 />
@@ -307,16 +352,16 @@ export default function UploadFormPage() {
       <ModalConfirm
         isOpen={modalStep > 0}
         title={
-          modalStep === 1
-            ? `Apakah anda ingin mengunggah <${title.trim()}>?`
-            : 'Jurnal berhasil diunggah'
+          modalStep === 2
+            ? 'Jurnal berhasil diunggah'
+            : `Apakah anda ingin mengunggah <${title.trim()}>?`
         }
         subtitle={
-          modalStep === 1
-            ? 'Jurnal akan disimpan dan dapat dibaca sebelum diringkas.'
-            : 'Buka halaman jurnal sekarang?'
+          modalStep === 2
+            ? 'Buka halaman jurnal sekarang?'
+            : 'Jurnal akan disimpan dan dapat dibaca sebelum diringkas.'
         }
-        onConfirm={modalStep === 1 ? handleConfirmUpload : handleViewJournal}
+        onConfirm={modalStep === 2 ? handleViewJournal : handleConfirmUpload}
         onCancel={() => setModalStep(0)}
         confirmText="Ya"
         cancelText="Tidak"

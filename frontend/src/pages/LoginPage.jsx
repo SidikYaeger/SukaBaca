@@ -9,29 +9,7 @@ export default function LoginPage({ onLoginSuccess }) {
   const [error, setError] = useState('');
   const [successNotice, setSuccessNotice] = useState('');
   const [loading, setLoading] = useState(false);
-  const [dbStatus, setDbStatus] = useState({ checking: true, connected: false });
   const navigate = useNavigate();
-
-  useEffect(() => {
-    let isMounted = true;
-    const verifyConnection = async () => {
-      const health = await store.checkServerHealth();
-      if (isMounted) {
-        setDbStatus({ checking: false, connected: health.connected, totalUsers: health.totalUsers });
-        if (!health.connected) {
-          setError('Koneksi Database / Backend Terputus! Sistem dinonaktifkan.');
-        } else {
-          setError((prev) => prev.includes('Terputus') ? '' : prev);
-        }
-      }
-    };
-    verifyConnection();
-    const interval = setInterval(verifyConnection, 6000);
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, []);
 
   useEffect(() => {
     if (location.state?.registeredUsername) {
@@ -42,24 +20,21 @@ export default function LoginPage({ onLoginSuccess }) {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!dbStatus.connected) {
-      setError('Aplikasi tidak dapat berjalan tanpa koneksi database dan backend.');
-      return;
-    }
-    if (!username.trim() || !password.trim()) {
-      setError('Harap masukkan username dan password');
+    const cleanUser = username.trim();
+    if (cleanUser.length < 3 || !password) {
+      setError('Harap masukkan username (minimal 3 karakter) dan password');
       return;
     }
     setLoading(true);
     setError('');
-    const result = await store.apiLogin(username, password);
+    const result = await store.apiLogin(cleanUser, password);
     setLoading(false);
 
     if (result.success) {
       if (onLoginSuccess) {
         onLoginSuccess(result.user || result.username);
       }
-      navigate('/home');
+      navigate(location.state?.from || '/home');
     } else {
       setError(result.message || 'Login gagal, periksa username dan password Anda');
     }
@@ -81,31 +56,6 @@ export default function LoginPage({ onLoginSuccess }) {
           </h1>
         </div>
 
-        {/* Database & Server Health Indicator */}
-        <div className={`w-full mb-3 px-3 py-1.5 rounded-xl text-[11px] font-medium flex items-center justify-center gap-2 border transition-all ${
-          dbStatus.checking 
-            ? 'bg-gray-50 border-gray-200 text-gray-500' 
-            : dbStatus.connected 
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
-              : 'bg-red-50 border-red-200 text-red-700 font-semibold'
-        }`}>
-          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-            dbStatus.checking 
-              ? 'bg-gray-400 animate-pulse' 
-              : dbStatus.connected 
-                ? 'bg-emerald-500' 
-                : 'bg-red-500 animate-pulse'
-          }`}></span>
-          <span>
-            {dbStatus.checking 
-              ? 'Memeriksa koneksi database...' 
-              : dbStatus.connected 
-                ? `MySQL Terhubung (${dbStatus.totalUsers || 0} Akun Aktif)` 
-                : 'Koneksi Database Terputus (Akses Ditutup)'}
-          </span>
-        </div>
-
-        {/* Success message */}
         {successNotice && (
           <div className="w-full mb-3 p-2 bg-green-50 text-green-700 text-xs rounded-lg text-center border border-green-200">
             {successNotice}
@@ -147,17 +97,16 @@ export default function LoginPage({ onLoginSuccess }) {
             />
           </div>
 
-          {/* Gradient Login Button */}
           <button
             type="submit"
-            disabled={loading || !dbStatus.connected}
+            disabled={loading}
             className="w-full py-2.5 mt-2 rounded-xl text-xs sm:text-sm font-semibold text-white shadow-sm hover:opacity-95 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
-              background: dbStatus.connected ? 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)' : '#9ca3af',
+              background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
               border: '1px solid #333333'
             }}
           >
-            {loading ? 'Memproses...' : !dbStatus.connected ? 'Server / DB Offline' : 'Login'}
+            {loading ? 'Memproses...' : 'Login'}
           </button>
         </form>
 

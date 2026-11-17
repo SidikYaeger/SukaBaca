@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Star, Download, Eye, Calendar, User, Send, CheckCircle2, MessageSquare, Sparkles, FileText } from 'lucide-react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { Star, Download, Eye, Calendar, User, Send, CheckCircle2, MessageSquare, Sparkles, FileText, Trash2, ExternalLink } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { store } from '../services/store';
 
 export default function ArticleDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const journalId = id || 1;
+  const auth = store.getAuth();
 
   const [journal, setJournal] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -57,8 +59,16 @@ export default function ArticleDetailPage() {
 
   const handleAddReview = async (e) => {
     e.preventDefault();
-    if (!comment.trim()) return;
     setReviewError('');
+    if (!auth.isAuthenticated || !store.getToken()) {
+      navigate('/login', { state: { from: location.pathname } });
+      return;
+    }
+    const trimmed = comment.trim();
+    if (trimmed.length < 3 || trimmed.length > 2000) {
+      setReviewError('Komentar harus terdiri dari 3–2000 karakter');
+      return;
+    }
 
     const author = reviewerName.trim() || 'Pengguna';
     try {
@@ -66,7 +76,7 @@ export default function ArticleDetailPage() {
         journalId: Number(journalId),
         author,
         rating: userRating,
-        komentar: comment.trim()
+        komentar: trimmed
       });
 
       const updatedReviews = [newRev, ...reviews];
@@ -81,25 +91,31 @@ export default function ArticleDetailPage() {
     }
   };
 
+  const handleDeleteReview = async (reviewId) => {
+    setReviewError('');
+    try {
+      await store.apiDeleteReview(reviewId);
+      const updated = reviews.filter(r => String(r.id) !== String(reviewId));
+      setReviews(updated);
+      if (updated.length === 0) {
+        setRatingStats({ avg: 0, count: 0 });
+      } else {
+        const sum = updated.reduce((acc, r) => acc + Number(r.rating || 0), 0);
+        setRatingStats({ avg: Number((sum / updated.length).toFixed(1)), count: updated.length });
+      }
+    } catch (err) {
+      setReviewError(err.message || 'Gagal menghapus ulasan');
+    }
+  };
+
   const handleDownload = async () => {
+    if (!journal) return;
     await store.apiRecordDownload(journalId);
     setJournal(prev => prev ? { ...prev, download: (Number(prev.download) || 0) + 1 } : prev);
 
-    const element = document.createElement("a");
-    const file = new Blob([
-      `===================================================\n` +
-      `RINGKASAN JURNAL AKADEMIK - SUKABACA\n` +
-      `===================================================\n\n` +
-      `Judul: ${journal?.title || 'Jurnal'}\n` +
-      `Penulis: ${journal?.author || 'Penulis'}\n` +
-      `Tanggal: ${journal?.date || '2026'}\n` +
-      `Format: ${journal?.formatFile || 'PDF'}\n\n` +
-      `Ringkasan Eksekutif:\n` +
-      `${ringkasan?.isi || journal?.abstract || journal?.snippet || ''}\n\n` +
-      `Dihasilkan secara otomatis oleh SukaBaca AI Engine.`
-    ], { type: 'text/plain;charset=utf-8' });
-    element.href = URL.createObjectURL(file);
-    element.download = `Ringkasan_${(journal?.title || 'Jurnal').slice(0, 20).replace(/\s+/g, '_')}.txt`;
+    const element = document.createElement('a');
+    element.href = store.getRingkasanPdfUrl(journal.id, true);
+    element.download = `Ringkasan_${(journal.title || 'Jurnal').slice(0, 30).replace(/\s+/g, '_')}.pdf`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -113,7 +129,7 @@ export default function ArticleDetailPage() {
       <div className="flex-1 flex flex-col bg-white min-h-screen pb-20">
         <Navbar variant="with-back" />
         <div className="max-w-2xl mx-auto px-5 sm:px-8 w-full mt-8 text-center">
-          <p className="text-sm font-semibold text-gray-500">Memuat ringkasan dari database...</p>
+          <p className="text-sm font-semibold text-gray-500">Memuat ringkasan...</p>
         </div>
       </div>
     );
@@ -130,7 +146,7 @@ export default function ArticleDetailPage() {
               Maaf, jurnal tidak ditemukan
             </h1>
             <p className="text-xs sm:text-sm text-gray-600 mb-6">
-              Data jurnal tidak tersedia atau telah dihapus dari database.
+              Data jurnal tidak tersedia atau telah dihapus.
             </p>
             <button
               type="button"
@@ -190,19 +206,20 @@ export default function ArticleDetailPage() {
           </span>
         </div>
 
-        {/* Action Bar (Download & Read) */}
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <button
-            onClick={handleDownload}
-            className="py-2.5 px-5 rounded-xl text-white font-semibold text-xs sm:text-sm shadow hover:opacity-95 active:scale-95 transition-all flex items-center gap-2"
-            style={{
-              background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
-              border: '1px solid #333333'
-            }}
-          >
-            <Download size={16} strokeWidth={2.5} />
-            <span>Unduh Ringkasan (.txt)</span>
-          </button>
+        <div className="flex items-center justify-center gap-3 mb-8 flex-wrap">
+          {ringkasan?.isi && (
+            <button
+              onClick={handleDownload}
+              className="py-2.5 px-5 rounded-xl text-white font-semibold text-xs sm:text-sm shadow hover:opacity-95 active:scale-95 transition-all flex items-center gap-2"
+              style={{
+                background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
+                border: '1px solid #333333'
+              }}
+            >
+              <Download size={16} strokeWidth={2.5} />
+              <span>Unduh Ringkasan (.pdf)</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -238,15 +255,32 @@ export default function ArticleDetailPage() {
         </div>
 
         <section className="mb-10 bg-gray-50/80 p-5 rounded-2xl border border-gray-100">
-          <h2 className="text-sm font-bold text-purple-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Sparkles size={16} className="text-purple-600" />
-            Ringkasan Eksekutif AI
-          </h2>
+          <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+            <h2 className="text-sm font-bold text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkles size={16} className="text-purple-600" />
+              Ringkasan Eksekutif AI
+            </h2>
+            {ringkasan?.isi && (
+              <a
+                href={store.getRingkasanPdfUrl(journal.id, false)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-semibold text-purple-700 hover:underline flex items-center gap-1"
+              >
+                <span>Buka PDF di Tab Baru</span>
+                <ExternalLink size={13} />
+              </a>
+            )}
+          </div>
           {ringkasan?.isi ? (
-            <div className="space-y-2">
-              <p className="text-xs sm:text-sm text-gray-800 leading-relaxed font-normal whitespace-pre-line">
-                {ringkasan.isi}
-              </p>
+            <div className="space-y-3">
+              <div className="w-full rounded-xl overflow-hidden border border-gray-200 bg-white shadow-2xs">
+                <iframe
+                  title={`Ringkasan PDF ${journal.title}`}
+                  src={store.getRingkasanPdfUrl(journal.id, false)}
+                  className="w-full h-[560px] sm:h-[640px] border-0"
+                />
+              </div>
               {ringkasan.model && (
                 <p className="text-[11px] text-gray-500 font-medium">
                   Model: {ringkasan.model}
@@ -338,13 +372,14 @@ export default function ArticleDetailPage() {
               </span>
             </div>
 
-            {/* Comment Textarea */}
             <div className="mb-3">
               <textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="Bagikan pandangan Anda mengenai jurnal atau ringkasan ini..."
                 rows={3}
+                minLength={3}
+                maxLength={2000}
                 className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-gray-300 focus:border-purple-600 focus:ring-1 focus:ring-purple-600 outline-none transition-all placeholder-gray-400 bg-white"
                 required
               />
@@ -363,7 +398,7 @@ export default function ArticleDetailPage() {
                 }}
               >
                 <Send size={14} />
-                <span>Kirim Ulasan</span>
+                <span>{auth.isAuthenticated ? 'Kirim Ulasan' : 'Login untuk Ulas'}</span>
               </button>
             </div>
 
@@ -391,40 +426,58 @@ export default function ArticleDetailPage() {
                 </p>
               </div>
             ) : (
-              reviews.map((rev) => (
-                <div key={rev.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-2xs">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-purple-100 text-purple-700 font-bold text-xs flex items-center justify-center">
-                        {rev.author.slice(0, 1).toUpperCase()}
+              reviews.map((rev) => {
+                const canDeleteReview = auth.isAuthenticated && (
+                  auth.profile?.role === 'admin' ||
+                  (rev.userId != null && String(rev.userId) === String(auth.profile?.userId))
+                );
+                return (
+                  <div key={rev.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-2xs">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-purple-100 text-purple-700 font-bold text-xs flex items-center justify-center">
+                          {rev.author.slice(0, 1).toUpperCase()}
+                        </div>
+                        <div>
+                          <span className="font-bold text-xs text-gray-900 block leading-tight">
+                            {rev.author}
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            {rev.createdAt}
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="font-bold text-xs text-gray-900 block leading-tight">
-                          {rev.author}
-                        </span>
-                        <span className="text-[10px] text-gray-400">
-                          {rev.createdAt}
-                        </span>
+
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-0.5 text-amber-400">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              size={14}
+                              fill={i < rev.rating ? 'currentColor' : 'none'}
+                              className={i < rev.rating ? 'text-amber-400' : 'text-gray-300'}
+                            />
+                          ))}
+                        </div>
+                        {canDeleteReview && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteReview(rev.id)}
+                            className="p-1 text-gray-400 hover:text-red-600 rounded"
+                            title="Hapus Ulasan"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-0.5 text-amber-400">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          size={14}
-                          fill={i < rev.rating ? 'currentColor' : 'none'}
-                          className={i < rev.rating ? 'text-amber-400' : 'text-gray-300'}
-                        />
-                      ))}
-                    </div>
+                    <p className="text-xs text-gray-700 leading-relaxed pl-9">
+                      {rev.komentar}
+                    </p>
                   </div>
-
-                  <p className="text-xs text-gray-700 leading-relaxed pl-9">
-                    {rev.komentar}
-                  </p>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </section>

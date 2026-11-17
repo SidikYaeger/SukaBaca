@@ -8,6 +8,7 @@ const EMPTY_SUBSCRIPTION = {
 
 const mapBackendJournal = (j) => ({
   id: j.id,
+  ownerId: j.ownerId != null ? j.ownerId : (j.user ? j.user.id : null),
   title: j.title,
   snippet: j.snippet || (j.content ? j.content.slice(0, 120) + '...' : ''),
   content: j.content,
@@ -19,7 +20,10 @@ const mapBackendJournal = (j) => ({
   views: Number(j.views) || 0,
   download: Number(j.download) || 0,
   category: j.category || 'Umum',
-  fileName: j.fileName || null
+  fileName: j.fileName || null,
+  rating: Number(j.averageRating) || 0,
+  reviewCount: Number(j.reviewCount) || 0,
+  isSaved: Boolean(j.isSaved)
 });
 
 export const store = {
@@ -27,12 +31,23 @@ export const store = {
     const raw = localStorage.getItem('sukabaca_auth');
     if (raw) {
       try {
-        return JSON.parse(raw);
-      } catch (e) {
-        return { isAuthenticated: false, user: null, profile: null };
-      }
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.isAuthenticated && parsed.profile?.token) {
+          return parsed;
+        }
+      } catch (e) {}
     }
     return { isAuthenticated: false, user: null, profile: null };
+  },
+
+  getToken() {
+    const auth = this.getAuth();
+    return auth.profile?.token || null;
+  },
+
+  authHeaders(extra = {}) {
+    const token = this.getToken();
+    return token ? { ...extra, Authorization: `Bearer ${token}` } : { ...extra };
   },
 
   setAuth(user) {
@@ -80,12 +95,13 @@ export const store = {
         body: JSON.stringify(payload)
       });
       const data = await res.json().catch(() => ({}));
-      if (res.ok && data.status === 'success') {
+      if (res.ok && data.status === 'success' && data.token) {
         const userObj = {
           userId: data.userId || 1,
           username: data.username || username,
           name: data.name || username,
-          role: data.role || 'user'
+          role: data.role || 'user',
+          token: data.token
         };
         this.setAuth(userObj);
         return { success: true, user: userObj, username: userObj.username, data };
@@ -101,12 +117,13 @@ export const store = {
         body: JSON.stringify(payload)
       });
       const data2 = await res2.json().catch(() => ({}));
-      if (res2.ok && data2.status === 'success') {
+      if (res2.ok && data2.status === 'success' && data2.token) {
         const userObj = {
           userId: data2.userId || 1,
           username: data2.username || username,
           name: data2.name || username,
-          role: data2.role || 'user'
+          role: data2.role || 'user',
+          token: data2.token
         };
         this.setAuth(userObj);
         return { success: true, user: userObj, username: userObj.username, data: data2 };
@@ -116,7 +133,7 @@ export const store = {
     } catch (err2) {
       return { 
         success: false, 
-        message: 'Koneksi ke backend gagal. Pastikan backend Spring Boot sedang berjalan.' 
+        message: 'Tidak dapat terhubung ke layanan SukaBaca. Silakan coba lagi.' 
       };
     }
   },
@@ -158,7 +175,7 @@ export const store = {
     } catch (err2) {
       return { 
         success: false, 
-        message: 'Koneksi ke backend gagal. Pastikan backend Spring Boot sedang berjalan.' 
+        message: 'Tidak dapat terhubung ke layanan SukaBaca. Silakan coba lagi.' 
       };
     }
   },
@@ -169,7 +186,7 @@ export const store = {
       if (search) url.searchParams.set('search', search);
       if (userId) url.searchParams.set('userId', userId);
 
-      const res = await fetch(url.toString());
+      const res = await fetch(url.toString(), { headers: this.authHeaders() });
       if (res.ok) {
         const data = await res.json();
         const mapped = Array.isArray(data) ? data.map(mapBackendJournal) : [];
@@ -179,6 +196,24 @@ export const store = {
     } catch (e) {}
     localStorage.removeItem('sukabaca_journals');
     return [];
+  },
+
+  async apiSmartSearch(criteria = {}) {
+    const res = await fetch('/api/journals/smart-search', {
+      method: 'POST',
+      headers: this.authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(criteria)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || 'Gagal memuat hasil pencarian');
+    }
+    const mapped = Array.isArray(data.journals) ? data.journals.map(mapBackendJournal) : [];
+    return {
+      total: Number(data.total) || mapped.length,
+      journals: mapped,
+      yearCounts: data.yearCounts || {}
+    };
   },
 
   getJournals() {
@@ -196,7 +231,7 @@ export const store = {
 
   async fetchJournalById(id) {
     try {
-      const res = await fetch(`/api/journals/${id}`);
+      const res = await fetch(`/api/journals/${id}`, { headers: this.authHeaders() });
       if (res.ok) {
         const j = await res.json();
         const mapped = mapBackendJournal(j);
@@ -223,33 +258,35 @@ export const store = {
 
   async apiUploadJournal(journalData) {
     const auth = this.getAuth();
-    const userId = journalData.userId || auth.profile?.userId || auth.profile?.id || 1;
+    if (!auth.isAuthenticated) {
+      throw new Error('Silakan login terlebih dahulu untuk mengunggah jurnal');
+    }
     const payload = {
-      title: journalData.title || 'Untitled Journal',
-      author: journalData.author || auth.user || 'Anonim',
+      title: journalData.title || '',
+      author: journalData.author || auth.user || '',
       abstract: journalData.abstract || '',
       content: journalData.content || journalData.abstract || '',
       category: journalData.category || 'Umum',
       publishDate: journalData.publishDate || new Date().getFullYear().toString(),
       formatFile: journalData.formatFile || 'PDF',
       fileName: journalData.fileName || undefined,
-      fileBase64: journalData.fileBase64 || undefined,
-      userId
+      fileBase64: journalData.fileBase64 || undefined
     };
 
     const res = await fetch('/api/journals/upload', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: this.authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.journalId) {
-      throw new Error(data.message || 'Gagal mengunggah jurnal ke database');
+      throw new Error(data.message || 'Gagal mengunggah jurnal');
     }
 
     const snippetSource = payload.abstract || payload.content;
     const newJournal = {
       id: data.journalId,
+      ownerId: auth.profile?.userId || null,
       title: payload.title,
       author: payload.author,
       snippet: snippetSource.length > 160 ? snippetSource.slice(0, 160) + '...' : snippetSource,
@@ -262,7 +299,10 @@ export const store = {
       views: 0,
       download: 0,
       category: payload.category,
-      fileName: payload.fileName || null
+      fileName: payload.fileName || null,
+      rating: 0,
+      reviewCount: 0,
+      isSaved: false
     };
 
     const list = this.getJournals();
@@ -272,30 +312,87 @@ export const store = {
     return newJournal;
   },
 
-  async apiSummarizeJournal(id, model = 'gemini-1.5-flash') {
-    const journal = this.getJournalById(id);
-    if (!journal) {
-      throw new Error('Jurnal tidak ditemukan di database');
+  async apiUpdateJournal(id, journalData) {
+    const res = await fetch(`/api/journals/${id}`, {
+      method: 'PUT',
+      headers: this.authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(journalData)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || 'Gagal memperbarui jurnal');
     }
-    const source = (journal.abstract || journal.content || journal.snippet || '')
-      .replace(/^abstrak:\s*/i, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    const sentences = source.split(/(?<=[.!?])\s+/).filter(Boolean);
-    const isi = `Ringkasan Eksekutif: ${sentences.slice(0, 3).join(' ')}`;
+    const mapped = mapBackendJournal(data);
+    const list = this.getJournals().map(item => String(item.id) === String(id) ? mapped : item);
+    localStorage.setItem('sukabaca_journals', JSON.stringify(list));
+    return mapped;
+  },
 
+  async apiDeleteJournal(id) {
+    const res = await fetch(`/api/journals/${id}`, {
+      method: 'DELETE',
+      headers: this.authHeaders()
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || 'Gagal menghapus jurnal');
+    }
+    const filtered = this.getJournals().filter(item => String(item.id) !== String(id));
+    localStorage.setItem('sukabaca_journals', JSON.stringify(filtered));
+    localStorage.removeItem(`sukabaca_ringkasan_${id}`);
+    return data;
+  },
+
+  async apiStartSummarize(id, model = 'Basic SukaBaca AI') {
+    const res = await fetch(`/api/journals/${id}/summarize/start`, {
+      method: 'POST',
+      headers: this.authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ model })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || 'Gagal memulai proses ringkasan AI');
+    }
+    return data;
+  },
+
+  async apiGetSummarizeJob(jobId) {
+    const res = await fetch(`/api/journals/summarize-jobs/${jobId}`, {
+      headers: this.authHeaders()
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || 'Gagal memeriksa status ringkasan AI');
+    }
+    if (data.status === 'COMPLETED' && data.ringkasan) {
+      localStorage.setItem(`sukabaca_ringkasan_${data.journalId}`, JSON.stringify(data.ringkasan));
+      if (data.remainingUsage != null) {
+        const sub = this.getSubscription();
+        const isPro = sub.dailyQuota >= 999 || Number(data.remainingUsage) < 0;
+        const remaining = isPro ? 999 : Math.max(0, Number(data.remainingUsage) || 0);
+        const updated = {
+          ...sub,
+          dailyQuota: isPro ? 999 : 10,
+          usedToday: isPro ? 0 : Math.max(0, 10 - remaining)
+        };
+        localStorage.setItem('sukabaca_subscription', JSON.stringify(updated));
+      }
+    }
+    return data;
+  },
+
+  async apiSummarizeJournal(id, model = 'Basic SukaBaca AI') {
     const res = await fetch(`/api/journals/${id}/summarize`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, isi })
+      headers: this.authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ model })
     });
+    const saved = await res.json().catch(() => ({}));
     if (!res.ok) {
-      throw new Error('Gagal menyimpan ringkasan ke database');
+      throw new Error(saved.message || 'Gagal meringkas jurnal dengan AI');
     }
-    const saved = await res.json();
-
     const result = {
-      isi: saved.isi || isi,
+      isi: saved.isi,
       model: saved.model || model,
       tanggalDibuat: saved.tanggalDibuat || new Date().toISOString()
     };
@@ -328,15 +425,20 @@ export const store = {
     return `/api/journals/${id}/file${download ? '?download=true' : ''}`;
   },
 
+  getRingkasanPdfUrl(id, download = false) {
+    return `/api/journals/${id}/ringkasan/pdf${download ? '?download=true' : ''}`;
+  },
+
   addJournal(journal) {
-    const auth = this.getAuth();
-    const userId = journal.userId || auth.profile?.userId || auth.profile?.id || 1;
-    return this.apiUploadJournal({ ...journal, userId });
+    return this.apiUploadJournal(journal);
   },
 
   async apiRecordView(id) {
     try {
-      await fetch(`/api/journals/${id}/view`, { method: 'POST' });
+      await fetch(`/api/journals/${id}/view`, {
+        method: 'POST',
+        headers: this.authHeaders()
+      });
     } catch (e) {}
     const list = this.getJournals();
     const target = list.find(j => String(j.id) === String(id));
@@ -352,7 +454,10 @@ export const store = {
 
   async apiRecordDownload(id) {
     try {
-      await fetch(`/api/journals/${id}/download`, { method: 'POST' });
+      await fetch(`/api/journals/${id}/download`, {
+        method: 'POST',
+        headers: this.authHeaders()
+      });
     } catch (e) {}
     const list = this.getJournals();
     const target = list.find(j => String(j.id) === String(id));
@@ -366,6 +471,57 @@ export const store = {
     this.apiRecordDownload(id);
   },
 
+  async fetchHistory() {
+    const res = await fetch('/api/journals/history', { headers: this.authHeaders() });
+    const data = await res.json().catch(() => ([]));
+    if (!res.ok) {
+      throw new Error(data.message || 'Gagal memuat riwayat pengguna');
+    }
+    return Array.isArray(data)
+      ? data.map(item => ({
+          historyId: item.historyId,
+          actionType: item.actionType,
+          createdAt: item.createdAt,
+          journal: mapBackendJournal(item.journal)
+        }))
+      : [];
+  },
+
+  async fetchSavedJournals() {
+    const res = await fetch('/api/journals/saved', { headers: this.authHeaders() });
+    const data = await res.json().catch(() => ([]));
+    if (!res.ok) {
+      throw new Error(data.message || 'Gagal memuat jurnal tersimpan');
+    }
+    return Array.isArray(data)
+      ? data.map(j => ({ ...mapBackendJournal(j), savedAt: j.savedAt || null }))
+      : [];
+  },
+
+  async apiSaveJournal(id) {
+    const res = await fetch(`/api/journals/${id}/save`, {
+      method: 'POST',
+      headers: this.authHeaders()
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || 'Gagal menyimpan jurnal');
+    }
+    return data;
+  },
+
+  async apiUnsaveJournal(id) {
+    const res = await fetch(`/api/journals/${id}/save`, {
+      method: 'DELETE',
+      headers: this.authHeaders()
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || 'Gagal menghapus bookmark jurnal');
+    }
+    return data;
+  },
+
   async fetchReviews(journalId) {
     try {
       const res = await fetch(`/api/reviews/journal/${journalId}`);
@@ -374,7 +530,7 @@ export const store = {
         const mapped = (data.reviews || []).map(r => ({
           id: r.reviewId || r.id,
           journalId: Number(journalId),
-          userId: r.user?.id || 1,
+          userId: r.user?.id || null,
           author: r.author || r.user?.name || r.user?.username || 'User',
           rating: Number(r.rating) || 5,
           komentar: r.komentar || '',
@@ -417,12 +573,10 @@ export const store = {
 
   async apiAddReview(review) {
     const auth = this.getAuth();
-    const userId = review.userId || auth.profile?.userId || auth.profile?.id;
-    if (!userId) {
+    if (!auth.isAuthenticated) {
       throw new Error('Silakan login terlebih dahulu untuk mengirim ulasan');
     }
     const payload = {
-      userId,
       journalId: Number(review.journalId),
       rating: Number(review.rating) || 5,
       komentar: review.komentar || ''
@@ -430,18 +584,18 @@ export const store = {
 
     const res = await fetch('/api/reviews', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: this.authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.reviewId) {
-      throw new Error(data.message || 'Gagal menyimpan ulasan ke database');
+      throw new Error(data.message || 'Gagal menyimpan ulasan');
     }
 
     const newRev = {
       id: data.reviewId,
       journalId: payload.journalId,
-      userId,
+      userId: auth.profile?.userId || null,
       author: review.author || auth.user || 'User',
       rating: payload.rating,
       komentar: payload.komentar,
@@ -458,6 +612,20 @@ export const store = {
     return this.apiAddReview(review);
   },
 
+  async apiDeleteReview(reviewId) {
+    const res = await fetch(`/api/reviews/${reviewId}`, {
+      method: 'DELETE',
+      headers: this.authHeaders()
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || 'Gagal menghapus ulasan');
+    }
+    const list = this.getReviews().filter(r => String(r.id) !== String(reviewId));
+    localStorage.setItem('sukabaca_reviews', JSON.stringify(list));
+    return data;
+  },
+
   getAverageRating(journalId) {
     const reviews = this.getReviews(journalId);
     if (!reviews || reviews.length === 0) return { avg: 0, count: 0 };
@@ -471,18 +639,21 @@ export const store = {
   async fetchSubscription(userId = null) {
     const auth = this.getAuth();
     const uid = userId || auth.profile?.userId || auth.profile?.id;
-    if (!uid) {
+    if (!uid || !this.getToken()) {
       localStorage.removeItem('sukabaca_subscription');
       return { ...EMPTY_SUBSCRIPTION };
     }
     try {
-      const res = await fetch(`/api/subscriptions/user/${uid}`);
+      const res = await fetch(`/api/subscriptions/user/${uid}`, {
+        headers: this.authHeaders()
+      });
       if (res.ok) {
         const data = await res.json();
-        const isPro = String(data.plan).toLowerCase() === 'pro';
+        const isPro = String(data.plan).toLowerCase() === 'pro' && String(data.status).toLowerCase() === 'active';
         const subObj = {
           subscriptionId: data.subscriptionId,
           plan: isPro ? 'Ultra Academic Pro' : 'Free Academic',
+          rawPlan: isPro ? 'pro' : 'free',
           status: data.status || 'active',
           dailyQuota: isPro ? 999 : 10,
           usedToday: isPro ? 0 : Math.max(0, 10 - (data.usage != null ? data.usage : 10)),
@@ -509,11 +680,14 @@ export const store = {
   async useAiQuota() {
     const auth = this.getAuth();
     const uid = auth.profile?.userId || auth.profile?.id;
-    if (!uid) {
+    if (!uid || !this.getToken()) {
       return { success: false, remaining: 0 };
     }
     try {
-      const res = await fetch(`/api/subscriptions/user/${uid}/use-ai`, { method: 'POST' });
+      const res = await fetch(`/api/subscriptions/user/${uid}/use-ai`, {
+        method: 'POST',
+        headers: this.authHeaders()
+      });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         const sub = this.getSubscription();
@@ -532,15 +706,10 @@ export const store = {
   },
 
   async upgradeSubscription(planName = 'Ultra Academic Pro') {
-    const auth = this.getAuth();
-    const uid = auth.profile?.userId || auth.profile?.id;
-    if (!uid) {
-      throw new Error('Silakan login terlebih dahulu');
-    }
     const res = await fetch('/api/subscriptions/checkout', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: uid, plan: 'pro' })
+      headers: this.authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ plan: 'pro' })
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -550,10 +719,33 @@ export const store = {
     const sub = {
       subscriptionId: data.subscriptionId,
       plan: planName,
+      rawPlan: 'pro',
       status: 'active',
       dailyQuota: 999,
       usedToday: 0,
       periodEnd: data.currentPeriodEnd ? data.currentPeriodEnd.split('T')[0] : null
+    };
+    localStorage.setItem('sukabaca_subscription', JSON.stringify(sub));
+    return sub;
+  },
+
+  async apiCancelSubscription(subscriptionId) {
+    const res = await fetch(`/api/subscriptions/${subscriptionId}/cancel`, {
+      method: 'POST',
+      headers: this.authHeaders()
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || 'Gagal membatalkan langganan');
+    }
+    const sub = {
+      subscriptionId: data.subscriptionId,
+      plan: 'Free Academic',
+      rawPlan: 'free',
+      status: 'canceled',
+      dailyQuota: 10,
+      usedToday: 0,
+      periodEnd: null
     };
     localStorage.setItem('sukabaca_subscription', JSON.stringify(sub));
     return sub;

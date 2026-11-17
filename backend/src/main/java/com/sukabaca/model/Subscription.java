@@ -2,6 +2,7 @@ package com.sukabaca.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -22,13 +23,16 @@ public class Subscription {
     private String status = "active";
 
     @Column(name = "plan", length = 50)
-    private String plan = "free"; // "free" ($0/mo, 10 limit) or "pro" ($10/mo, unlimited)
+    private String plan = "free";
 
     @Column(name = "current_period_end")
     private LocalDateTime currentPeriodEnd;
 
     @Column(name = "`usage`")
-    private Integer usage = 10; // AI usages quota left (-1 for unlimited)
+    private Integer usage = 10;
+
+    @Column(name = "last_reset_date")
+    private LocalDate lastResetDate = LocalDate.now();
 
     public Subscription() {}
 
@@ -38,34 +42,56 @@ public class Subscription {
         this.plan = plan != null ? plan : "free";
         this.currentPeriodEnd = currentPeriodEnd;
         this.usage = usage != null ? usage : ("pro".equalsIgnoreCase(plan) ? -1 : 10);
+        this.lastResetDate = LocalDate.now();
     }
 
     public Subscription(User user, String status, LocalDateTime currentPeriodEnd, Integer usage) {
         this(user, status, "free", currentPeriodEnd, usage);
     }
 
-    // Business & Domain methods matching UML specification
-    public void createCheckoutSession() {
-        // Prepares payment checkout session (e.g. Stripe/Midtrans)
-    }
+    public void createCheckoutSession() {}
 
-    public void handleWebhook() {
-        // Processes payment confirmation webhooks
-    }
+    public void handleWebhook() {}
 
     public void cancelSubscription() {
         this.status = "canceled";
+        this.plan = "free";
+        this.usage = 10;
+        this.lastResetDate = LocalDate.now();
+    }
+
+    public boolean isProActive() {
+        return "pro".equalsIgnoreCase(this.plan) && "active".equalsIgnoreCase(this.status);
+    }
+
+    public boolean refreshDailyQuotaIfNeeded() {
+        LocalDate today = LocalDate.now();
+        if (!isProActive() && (this.lastResetDate == null || today.isAfter(this.lastResetDate))) {
+            this.usage = 10;
+            this.lastResetDate = today;
+            return true;
+        }
+        return false;
     }
 
     public boolean decrementUsage() {
-        if ("pro".equalsIgnoreCase(this.plan) || (this.usage != null && this.usage < 0)) {
-            return true; // Unlimited quota for pro
+        refreshDailyQuotaIfNeeded();
+        if (isProActive() || (this.usage != null && this.usage < 0)) {
+            return true;
         }
         if (this.usage != null && this.usage > 0) {
             this.usage--;
             return true;
         }
         return false;
+    }
+
+    public LocalDate getLastResetDate() {
+        return lastResetDate;
+    }
+
+    public void setLastResetDate(LocalDate lastResetDate) {
+        this.lastResetDate = lastResetDate;
     }
 
     // Getters and Setters

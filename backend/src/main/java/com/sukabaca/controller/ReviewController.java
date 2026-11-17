@@ -1,17 +1,20 @@
 package com.sukabaca.controller;
 
+import com.sukabaca.exception.ApiException;
 import com.sukabaca.model.Journal;
 import com.sukabaca.model.Review;
 import com.sukabaca.model.User;
 import com.sukabaca.repository.JournalRepository;
 import com.sukabaca.repository.ReviewRepository;
 import com.sukabaca.repository.UserRepository;
+import com.sukabaca.security.TokenService;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/reviews")
@@ -42,39 +45,60 @@ public class ReviewController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createReview(@RequestBody Map<String, Object> request) {
-        if (!request.containsKey("userId") || !request.containsKey("journalId") || !request.containsKey("rating")) {
-            return ResponseEntity.badRequest().body(Map.of("message", "userId, journalId, and rating are required"));
+    public ResponseEntity<?> createReview(@RequestBody Map<String, Object> requestBody,
+                                          HttpServletRequest request) {
+        User user = TokenService.requireUser(request, userRepository);
+        if (requestBody == null || !requestBody.containsKey("journalId") || !requestBody.containsKey("rating")) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "journalId dan rating wajib diisi");
         }
 
-        Long userId = Long.valueOf(request.get("userId").toString());
-        Long journalId = Long.valueOf(request.get("journalId").toString());
-        Integer rating = Integer.valueOf(request.get("rating").toString());
-        String komentar = request.getOrDefault("komentar", "").toString();
-
-        Optional<User> userOpt = userRepository.findById(userId);
-        Optional<Journal> journalOpt = journalRepository.findById(journalId);
-
-        if (userOpt.isEmpty() || journalOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "User or Journal not found"));
+        long journalId;
+        int rating;
+        try {
+            journalId = Long.parseLong(String.valueOf(requestBody.get("journalId")));
+            rating = Integer.parseInt(String.valueOf(requestBody.get("rating")));
+        } catch (NumberFormatException e) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Format journalId atau rating harus berupa angka");
         }
 
-        Review review = new Review(userOpt.get(), journalOpt.get(), rating, komentar);
+        if (rating < 1 || rating > 5) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Rating harus antara 1 sampai 5 bintang");
+        }
+
+        String komentar = requestBody.containsKey("komentar") && requestBody.get("komentar") != null
+                ? String.valueOf(requestBody.get("komentar")).trim()
+                : "";
+        if (komentar.length() < 3 || komentar.length() > 2000) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Komentar harus terdiri dari 3–2000 karakter");
+        }
+
+        Journal journal = journalRepository.findById(journalId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Jurnal tidak ditemukan"));
+
+        Review review = new Review(user, journal, rating, komentar);
         reviewRepository.save(review);
 
         return ResponseEntity.ok(Map.of(
                 "status", "success",
-                "message", "Review added successfully",
+                "message", "Ulasan berhasil disimpan",
                 "reviewId", review.getReviewId()
         ));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteReview(@PathVariable Long id) {
-        return reviewRepository.findById(id).map(r -> {
-            r.hapusReview();
-            reviewRepository.delete(r);
-            return ResponseEntity.ok(Map.of("status", "success", "message", "Review deleted successfully"));
-        }).orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<?> deleteReview(@PathVariable Long id, HttpServletRequest request) {
+        User actor = TokenService.requireUser(request, userRepository);
+        Review review = reviewRepository.findById(id)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Ulasan tidak ditemukan"));
+
+        boolean isOwner = review.getUser() != null && review.getUser().getId().equals(actor.getId());
+        boolean isAdmin = "admin".equalsIgnoreCase(actor.getRole());
+        if (!isOwner && !isAdmin) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Anda hanya dapat menghapus ulasan Anda sendiri");
+        }
+
+        review.hapusReview();
+        reviewRepository.delete(review);
+        return ResponseEntity.ok(Map.of("status", "success", "message", "Ulasan berhasil dihapus"));
     }
 }
