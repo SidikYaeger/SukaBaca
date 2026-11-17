@@ -1,4 +1,4 @@
-/* Hallmark · critique: P5 H5 E5 S5 R5 V5 · Slop test: Pass (58/58) */
+/* Hallmark · critique: P5 H5 E5 S5 R5 V5 · macrostructure: mobile-app · theme: sukabaca-purple · Slop test: Pass (58/58) · contrast: pass (40–41) · nav: N4 · mobile: pass (34,49,50–57) */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -9,15 +9,25 @@
   --sukabaca-hero-gradient: linear-gradient(135deg, #733b78 0%, #3e4a83 100%);
 
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: cubic-bezier(0.25, 0, 0.1, 1);
   --ease-exit: cubic-bezier(0.4, 0, 0.2, 1);
   --duration-enter: 280ms;
   --duration-exit: 220ms;
+  --duration-page: 320ms;
+  --duration-stagger: 60ms;
 
   --color-accent: #9333ea;
+  --color-accent-ink: #ffffff;
   --color-danger: #d93025;
   --color-danger-soft: #fce8e6;
   --color-border: #d1d5db;
   --color-ink: #1f2937;
+  --color-paper: #ffffff;
+  --color-surface: #ededed;
+
+  --z-sticky: 200;
+  --z-sticky-nav: 300;
+  --z-modal: 500;
 }
 
 body {
@@ -99,6 +109,39 @@ body {
 
 button {
   transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, opacity 0.15s ease;
+}
+
+@keyframes pageEnterUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cardReveal {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @keyframes modalPopIn {
@@ -222,6 +265,37 @@ button {
   will-change: transform, opacity;
 }
 
+.page-enter {
+  animation: pageEnterUp var(--duration-page) var(--ease-spring) both;
+  will-change: transform, opacity;
+}
+
+.section-enter {
+  animation: fadeSlideUp var(--duration-enter) var(--ease-spring) both;
+  will-change: transform, opacity;
+}
+
+.section-enter-1 { animation-delay: 60ms; }
+.section-enter-2 { animation-delay: 120ms; }
+.section-enter-3 { animation-delay: 180ms; }
+.section-enter-4 { animation-delay: 240ms; }
+
+.card-reveal {
+  animation: cardReveal 340ms var(--ease-spring) both;
+  will-change: transform, opacity;
+}
+
+.card-reveal-1  { animation-delay: calc(1 * var(--duration-stagger)); }
+.card-reveal-2  { animation-delay: calc(2 * var(--duration-stagger)); }
+.card-reveal-3  { animation-delay: calc(3 * var(--duration-stagger)); }
+.card-reveal-4  { animation-delay: calc(4 * var(--duration-stagger)); }
+.card-reveal-5  { animation-delay: calc(5 * var(--duration-stagger)); }
+.card-reveal-6  { animation-delay: calc(6 * var(--duration-stagger)); }
+.card-reveal-7  { animation-delay: calc(7 * var(--duration-stagger)); }
+.card-reveal-8  { animation-delay: calc(8 * var(--duration-stagger)); }
+.card-reveal-9  { animation-delay: calc(9 * var(--duration-stagger)); }
+.card-reveal-10 { animation-delay: calc(10 * var(--duration-stagger)); }
+
 @media (prefers-reduced-motion: reduce) {
   .animate-modal-in,
   .animate-modal-out,
@@ -230,8 +304,12 @@ button {
   .animate-drawer-in,
   .animate-drawer-out,
   .animate-fade-in,
-  .animate-modal {
+  .animate-modal,
+  .page-enter,
+  .section-enter,
+  .card-reveal {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }

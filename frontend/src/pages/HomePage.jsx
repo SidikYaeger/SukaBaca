@@ -27,7 +27,7 @@ export default function HomePage({ isAuthenticated = false, onLogout }) {
   ];
 
   return (
-    <div className="flex-1 flex flex-col bg-white min-h-screen text-gray-900 font-sans">
+    <div className="page-enter flex-1 flex flex-col bg-white min-h-screen text-gray-900 font-sans">
       {/* Top Navbar matching ResearchGate with SukaBaca Purple Nuance */}
       <header className="w-full border-b border-purple-100 bg-white sticky top-0 z-30 shadow-2xs">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -72,7 +72,7 @@ export default function HomePage({ isAuthenticated = false, onLogout }) {
                     background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
                   }}
                 >
-                  Dashboard ({typeof auth.user === 'object' ? (auth.user.username || auth.user.name || 'User') : (auth.user || 'Glen')})
+                  Dashboard ({typeof auth.user === 'object' ? (auth.user.username || auth.user.name || 'User') : (auth.user || 'User')})
                 </button>
                 <button
                   onClick={() => {

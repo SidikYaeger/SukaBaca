@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Eye, Download, Sparkles, FileText, Calendar, User, Tag, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Eye, Download, Sparkles, FileText, Calendar, User, Tag, AlertCircle, CheckCircle2, Star } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import ModalConfirm from '../components/ModalConfirm';
 import { store } from '../services/store';
@@ -15,28 +15,42 @@ export default function JournalViewPage() {
   const navigate = useNavigate();
 
   const [journal, setJournal] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState(store.getSubscription());
   const [hasSummary, setHasSummary] = useState(false);
+  const [ratingStats, setRatingStats] = useState({ avg: 0, count: 0 });
   const [selectedModel, setSelectedModel] = useState(AI_MODELS[0]);
   const [modalStep, setModalStep] = useState(0);
   const [summarizing, setSummarizing] = useState(false);
   const [quotaExhausted, setQuotaExhausted] = useState(false);
+  const [summarizeError, setSummarizeError] = useState('');
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
+    setLoading(true);
     const load = async () => {
       const data = await store.fetchJournalById(id);
-      if (!isMounted || !data) return;
+      if (!isMounted) return;
+      if (!data) {
+        setJournal(null);
+        setLoading(false);
+        return;
+      }
       store.apiRecordView(id);
       setJournal({ ...data, views: (Number(data.views) || 0) + 1 });
-      const [sub, summary] = await Promise.all([
+      setLoading(false);
+      const [sub, summary, revsData] = await Promise.all([
         store.fetchSubscription(),
-        store.fetchRingkasan(id)
+        store.fetchRingkasan(id),
+        store.fetchReviews(id)
       ]);
       if (!isMounted) return;
       setSubscription(sub);
       setHasSummary(!!summary);
+      if (revsData) {
+        setRatingStats({ avg: revsData.averageRating, count: revsData.totalReviews });
+      }
     };
     load();
     return () => { isMounted = false; };
@@ -80,6 +94,7 @@ export default function JournalViewPage() {
   const remainingQuota = Math.max(0, subscription.dailyQuota - subscription.usedToday);
 
   const handleSummarizeClick = () => {
+    setSummarizeError('');
     if (remainingQuota <= 0) {
       setQuotaExhausted(true);
       return;
@@ -91,18 +106,24 @@ export default function JournalViewPage() {
   const handleConfirmSummarize = async () => {
     if (summarizing) return;
     setSummarizing(true);
-    const quota = await store.useAiQuota();
-    if (!quota.success) {
-      setSummarizing(false);
+    setSummarizeError('');
+    try {
+      const quota = await store.useAiQuota();
+      if (!quota.success) {
+        setModalStep(0);
+        setQuotaExhausted(true);
+        return;
+      }
+      await store.apiSummarizeJournal(journal.id, selectedModel);
+      setSubscription(store.getSubscription());
+      setHasSummary(true);
+      setModalStep(2);
+    } catch (err) {
       setModalStep(0);
-      setQuotaExhausted(true);
-      return;
+      setSummarizeError(err.message || 'Gagal membuat ringkasan');
+    } finally {
+      setSummarizing(false);
     }
-    await store.apiSummarizeJournal(journal.id, selectedModel);
-    setSubscription(store.getSubscription());
-    setHasSummary(true);
-    setSummarizing(false);
-    setModalStep(2);
   };
 
   const handleViewSummary = () => {
@@ -110,7 +131,57 @@ export default function JournalViewPage() {
     navigate(`/article/${journal.id}`);
   };
 
-  if (!journal) return null;
+  if (loading) {
+    return (
+      <div className="flex-1 flex flex-col bg-[#ededed] min-h-screen pb-16">
+        <Navbar variant="with-back" />
+        <main className="page-enter w-full max-w-4xl mx-auto px-4 sm:px-8 mt-6">
+          <div className="bg-white rounded-[28px] border border-gray-100 shadow-sm p-10 text-center">
+            <p className="text-sm font-semibold text-gray-500">Memuat jurnal dari database...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!journal) {
+    return (
+      <div className="flex-1 flex flex-col bg-[#ededed] min-h-screen pb-16">
+        <Navbar variant="with-back" />
+        <main className="page-enter w-full max-w-2xl mx-auto px-4 sm:px-8 mt-6">
+          <div className="bg-white rounded-[28px] border border-gray-100 shadow-sm p-8 sm:p-10 text-center">
+            <FileText size={44} className="mx-auto text-purple-400 mb-3" strokeWidth={1.6} />
+            <h1 className="text-lg sm:text-xl font-extrabold text-gray-900 mb-2">
+              Maaf, jurnal tidak ditemukan
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-600 mb-6">
+              Data jurnal tidak tersedia atau telah dihapus dari database.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => navigate('/search')}
+                className="py-2.5 px-5 rounded-xl text-white font-bold text-xs sm:text-sm shadow hover:opacity-95 active:scale-95"
+                style={{
+                  background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
+                  border: '1px solid #333333'
+                }}
+              >
+                Cari Jurnal
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/upload-form')}
+                className="py-2.5 px-5 rounded-xl bg-white hover:bg-gray-50 text-gray-900 font-bold text-xs sm:text-sm shadow border border-purple-400 active:scale-95"
+              >
+                Unggah Jurnal
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   const extension = getExtension(journal.fileName);
   const canPreviewFile = journal.fileName && PREVIEWABLE.includes(extension);
@@ -120,8 +191,8 @@ export default function JournalViewPage() {
     <div className="flex-1 flex flex-col bg-[#ededed] min-h-screen pb-16">
       <Navbar variant="with-back" />
 
-      <main className="w-full max-w-4xl mx-auto px-4 sm:px-8 mt-1 space-y-5">
-        <header className="bg-white rounded-[28px] border border-gray-100 shadow-sm p-5 sm:p-7">
+      <main className="page-enter w-full max-w-4xl mx-auto px-4 sm:px-8 mt-1 space-y-5">
+        <header className="section-enter bg-white rounded-[28px] border border-gray-100 shadow-sm p-5 sm:p-7">
           <div className="flex items-center gap-2 flex-wrap mb-3">
             <span className="text-[11px] font-bold bg-purple-50 text-purple-800 border border-purple-200 px-2.5 py-0.5 rounded-full">
               Article
@@ -159,7 +230,7 @@ export default function JournalViewPage() {
             </div>
           </dl>
 
-          <div className="flex items-center gap-5 text-xs text-gray-600 font-semibold mb-5 pt-4 border-t border-gray-100">
+          <div className="flex items-center gap-5 text-xs text-gray-600 font-semibold mb-5 pt-4 border-t border-gray-100 flex-wrap">
             <span className="flex items-center gap-1.5" aria-label={`${journal.views || 0} kali dilihat`}>
               <Eye size={16} className="text-gray-500" />
               <strong className="text-gray-900">{journal.views || 0}</strong> dilihat
@@ -168,6 +239,13 @@ export default function JournalViewPage() {
               <Download size={16} className="text-gray-500" />
               <strong className="text-gray-900">{journal.download || 0}</strong> diunduh
             </span>
+            {ratingStats.count > 0 && (
+              <span className="flex items-center gap-1.5 text-amber-500" aria-label={`Rating ${ratingStats.avg} dari ${ratingStats.count} ulasan`}>
+                <Star size={15} fill="currentColor" />
+                <strong className="text-gray-900">{ratingStats.avg}</strong>
+                <span className="text-gray-500 font-normal">({ratingStats.count} ulasan)</span>
+              </span>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -228,12 +306,19 @@ export default function JournalViewPage() {
           {quotaExhausted && (
             <div role="alert" className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2">
               <AlertCircle size={16} className="flex-shrink-0" />
-              <span>Kuota harian ringkasan Anda telah habis. Silakan upgrade plan.</span>
+              <span>Kuota harian ringkasan Anda telah habis atau Anda belum login.</span>
+            </div>
+          )}
+
+          {summarizeError && (
+            <div role="alert" className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2">
+              <AlertCircle size={16} className="flex-shrink-0" />
+              <span>{summarizeError}</span>
             </div>
           )}
         </header>
 
-        <section aria-labelledby="abstract-heading" className="bg-white rounded-[28px] border border-gray-100 shadow-sm p-5 sm:p-7">
+        <section aria-labelledby="abstract-heading" className="section-enter section-enter-1 bg-white rounded-[28px] border border-gray-100 shadow-sm p-5 sm:p-7">
           <h2 id="abstract-heading" className="text-sm font-bold text-purple-900 uppercase tracking-wider mb-3">
             Abstract
           </h2>
@@ -242,7 +327,7 @@ export default function JournalViewPage() {
           </p>
         </section>
 
-        <section aria-labelledby="document-heading" className="bg-white rounded-[28px] border border-gray-100 shadow-sm overflow-hidden">
+        <section aria-labelledby="document-heading" className="section-enter section-enter-2 bg-white rounded-[28px] border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex items-center gap-2 px-5 sm:px-7 py-3.5 bg-gray-100 border-b border-gray-200 min-w-0">
             <FileText size={16} className="text-gray-600 flex-shrink-0" />
             <h2 id="document-heading" className="text-xs font-bold text-gray-800 truncate">

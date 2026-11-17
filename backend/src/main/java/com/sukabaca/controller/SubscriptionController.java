@@ -30,6 +30,12 @@ public class SubscriptionController {
         if (subOpt.isPresent()) {
             return ResponseEntity.ok(subOpt.get());
         }
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isPresent()) {
+            Subscription newSub = new Subscription(userOpt.get(), "active", "free", LocalDateTime.now().plusMonths(1), 10);
+            subscriptionRepository.save(newSub);
+            return ResponseEntity.ok(newSub);
+        }
         return ResponseEntity.notFound().build();
     }
 

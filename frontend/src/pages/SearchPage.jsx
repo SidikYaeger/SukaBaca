@@ -22,17 +22,18 @@ export default function SearchPage({ onLogout }) {
   const [activeQuery, setActiveQuery] = useState(initialQuery);
   const [showFilters, setShowFilters] = useState(!!initialQuery);
   const [journals, setJournals] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const navigate = useNavigate();
-  const auth = store.getAuth();
 
   useEffect(() => {
     let isMounted = true;
     const loadJournals = async () => {
       const data = await store.fetchJournals();
-      if (isMounted && data) {
-        setJournals(data);
+      if (isMounted) {
+        setJournals(Array.isArray(data) ? data : []);
+        setLoading(false);
       }
     };
     loadJournals();
@@ -60,13 +61,19 @@ export default function SearchPage({ onLogout }) {
     setShowFilters(false);
   };
 
-  // Filter journals based on active search query
   const filteredJournals = journals.filter(j => {
     if (!activeQuery.trim()) return true;
     const q = activeQuery.toLowerCase();
-    return [j.title, j.author, j.snippet, j.category].some(f => f?.toLowerCase().includes(q))
-      || ((q === 'iot' || q === 'pedoman') && j.title?.toUpperCase().includes('PEDOMAN'));
+    return [j.title, j.author, j.snippet, j.category].some(f => f?.toLowerCase().includes(q));
   });
+
+  const popularTopics = Array.from(
+    new Set(
+      journals
+        .flatMap(j => [j.category, j.author])
+        .filter(Boolean)
+    )
+  ).slice(0, 6);
 
   const handleCardClick = (journal) => {
     navigate(`/journal/${journal.id}`);
@@ -76,72 +83,38 @@ export default function SearchPage({ onLogout }) {
   const isFilterViewActive = hasSearched || showFilters;
 
   return (
-    <div className="flex-1 flex flex-col bg-[#faf9fc] min-h-screen font-sans text-gray-900">
-      {/* 1. NIH / PubMed Top Dark Purple Header */}
-      <header className="w-full bg-[#2b1055] text-white py-2.5 px-4 sm:px-8 text-xs shadow-xs">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* SukaBaca Drawer Button */}
-            <button
-              onClick={() => setDrawerOpen(true)}
-              className="p-1 rounded hover:bg-white/10 active:scale-95 transition-all text-white"
-              title="Buka Navigasi SukaBaca"
-            >
-              <Menu size={18} />
-            </button>
-
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold tracking-wider bg-white/20 px-2 py-0.5 rounded text-[11px]">
-                SUKABACA
-              </span>
-              <span className="font-semibold text-purple-100 hidden sm:inline">
-                Sistem Manajemen & Ringkasan Jurnal Akademik
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 font-semibold text-[11px]">
-            {auth.isAuthenticated ? (
-              <button 
-                onClick={() => navigate('/upload')}
-                className="bg-white/15 hover:bg-white/25 px-2.5 py-1 rounded transition-colors text-white"
-              >
-                Dashboard ({auth.user || 'Glen'})
-              </button>
-            ) : (
-              <button 
-                onClick={() => navigate('/login')}
-                className="bg-white/15 hover:bg-white/25 px-2.5 py-1 rounded transition-colors text-white"
-              >
-                Log in
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* 2. SukaBaca Search Header Area */}
+    <div className="page-enter flex-1 flex flex-col bg-[#faf9fc] min-h-screen font-sans text-gray-900">
       <div className="w-full bg-white border-b border-purple-100 py-4 px-4 sm:px-8 shadow-xs">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-4 md:gap-6">
-          {/* SukaBaca Logo */}
-          <div 
-            onClick={() => { handleClearSearch(); navigate('/search'); }}
-            className="cursor-pointer flex items-center gap-2 select-none"
-          >
-            <img src="/sukabaca-book.png" alt="SukaBaca Logo" className="h-9 w-auto object-contain" />
-            <span className="text-3xl font-black tracking-tight text-[#4c1d95]">
-              Suka<span className="text-[#b83c9c]">Baca</span>
-            </span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              className="p-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 active:scale-95 text-gray-700"
+              title="Buka Navigasi SukaBaca"
+            >
+              <Menu size={20} />
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/upload')}
+              className="cursor-pointer flex items-center gap-2 select-none hover:opacity-90 active:scale-95"
+              title="Kembali ke Dashboard"
+            >
+              <img src="/sukabaca-book.png" alt="SukaBaca Logo" className="h-9 w-auto object-contain" />
+              <span className="text-3xl font-black tracking-tight text-[#4c1d95]">
+                Suka<span className="text-[#b83c9c]">Baca</span>
+              </span>
+            </button>
           </div>
 
-          {/* Search Box */}
           <form onSubmit={handleSearchSubmit} className="flex-1 w-full max-w-3xl">
             <div className="flex items-center border-2 border-purple-600 rounded-lg overflow-hidden shadow-xs focus-within:ring-2 focus-within:ring-purple-300">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search SukaBaca, e.g. iot, pedoman investasi, sahrul, architecture"
+                placeholder="Cari judul jurnal, penulis, atau kategori..."
                 className="w-full px-3.5 py-2.5 text-sm sm:text-base outline-none text-gray-900 font-medium placeholder-gray-400"
               />
               {searchQuery && (
@@ -185,22 +158,48 @@ export default function SearchPage({ onLogout }) {
         </div>
       </div>
 
-      {/* 3. Main Body */}
-      {!isFilterViewActive ? (
-        /* STATE 1: Empty search state */
+      {loading ? (
+        <main className="flex-1 max-w-5xl mx-auto px-6 py-12 w-full text-center">
+          <div className="bg-white border border-purple-100 rounded-2xl p-10 max-w-xl mx-auto shadow-xs">
+            <p className="text-sm font-semibold text-gray-500">Memuat jurnal dari database...</p>
+          </div>
+        </main>
+      ) : journals.length === 0 ? (
+        <main className="flex-1 max-w-5xl mx-auto px-6 py-12 w-full text-center">
+          <div className="bg-white border border-purple-100 rounded-2xl p-8 sm:p-10 max-w-xl mx-auto shadow-xs">
+            <FileText size={44} className="mx-auto text-purple-400 mb-3" strokeWidth={1.6} />
+            <h1 className="text-lg sm:text-xl font-extrabold text-[#2b1055] mb-2">
+              Maaf, belum ada jurnal di database
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-600 mb-6">
+              Saat ini belum ada jurnal yang tersimpan. Silakan unggah jurnal pertama Anda.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/upload-form')}
+              className="py-2.5 px-5 rounded-xl text-white font-bold text-xs sm:text-sm shadow hover:opacity-95 active:scale-95"
+              style={{
+                background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
+                border: '1px solid #333333'
+              }}
+            >
+              Unggah Jurnal
+            </button>
+          </div>
+        </main>
+      ) : !isFilterViewActive ? (
         <main className="flex-1 max-w-5xl mx-auto px-6 py-12 w-full text-center">
           <div className="py-8">
             <h1 className="text-2xl sm:text-3xl font-bold text-[#2b1055] mb-6 font-serif">
               Search Millions of Academic Publications & Citations
             </h1>
 
-            {/* Popular Topics / Shortcuts */}
             <div className="bg-white border border-purple-100 rounded-2xl p-6 max-w-2xl mx-auto text-left shadow-xs">
               <h3 className="text-xs font-bold uppercase tracking-wider text-purple-900 mb-3">
-                COBA PENCARIAN POPULER:
+                TOPIK & PENULIS TERSEDIA ({journals.length} JURNAL):
               </h3>
               <div className="flex flex-wrap gap-2">
-                {['iot', 'pedoman investasi', 'pedoman kearsipan', 'sustainable architecture', 'sahrul'].map((item) => (
+                {popularTopics.map((item) => (
                   <button
                     key={item}
                     onClick={() => {
@@ -211,9 +210,16 @@ export default function SearchPage({ onLogout }) {
                     }}
                     className="px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-300 text-purple-800 hover:bg-purple-600 hover:text-white transition-all text-xs font-semibold shadow-2xs"
                   >
-                    🔍 {item}
+                    {item}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(true)}
+                  className="px-3.5 py-1.5 rounded-full bg-gray-100 border border-gray-300 text-gray-800 hover:bg-gray-200 transition-all text-xs font-semibold"
+                >
+                  Lihat Semua Jurnal
+                </button>
               </div>
             </div>
           </div>
@@ -384,70 +390,65 @@ export default function SearchPage({ onLogout }) {
               {filteredJournals.length === 0 ? (
                 <div className="bg-white border border-purple-100 rounded-2xl p-10 text-center text-gray-600 shadow-xs">
                   <p className="font-bold text-sm text-gray-800">
-                    Tidak ditemukan hasil untuk "{activeQuery}"
+                    Maaf, tidak ditemukan jurnal untuk "{activeQuery}"
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Coba kata kunci lain seperti <strong>iot</strong>, <strong>pedoman</strong>, atau <strong>sahrul</strong>.
+                    Coba kata kunci lain atau tampilkan semua jurnal yang tersedia di database.
                   </p>
                   <button
-                    onClick={() => { setSearchQuery('iot'); setActiveQuery('iot'); }}
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setActiveQuery('');
+                      setSearchParams({});
+                    }}
                     className="mt-4 px-4 py-2 rounded-lg text-white text-xs font-semibold shadow"
                     style={{
                       background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
                     }}
                   >
-                    Tampilkan Mockup "iot"
+                    Tampilkan Semua Jurnal
                   </button>
                 </div>
               ) : (
-                filteredJournals.map((journal) => {
-                  const ratingValue = journal.rating || 4.8;
+                filteredJournals.map((journal, idx) => {
+                  const ratingLabel = journal.rating > 0 ? `${journal.rating} / 5` : 'Belum ada rating';
+                  const stagger = Math.min(idx + 1, 10);
                   return (
                     <div
                       key={journal.id}
                       onClick={() => handleCardClick(journal)}
-                      className="w-full bg-white border border-gray-200 hover:border-purple-400 rounded-xl p-4 sm:p-5 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex items-start gap-4 group"
+                      className={`card-reveal card-reveal-${stagger} w-full bg-white border border-gray-200 hover:border-purple-400 rounded-xl p-4 sm:p-5 shadow-2xs hover:shadow-xs cursor-pointer flex items-start gap-4 group`}
                     >
-                      {/* Left icon: Purple smartphone / document icon box (matching user's screenshot) */}
                       <div className="w-10 h-12 sm:w-11 sm:h-14 border border-purple-200 bg-purple-50/70 rounded-lg flex items-center justify-center text-purple-600 flex-shrink-0 group-hover:bg-purple-100/80 transition-colors">
                         <FileText size={22} strokeWidth={1.8} />
                       </div>
 
-                      {/* Content Area */}
                       <div className="flex-1 min-w-0">
-                        {/* Top Category / Institution */}
                         <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-tight mb-1 truncate">
-                          {journal.category || 'Bidang Investasi & Umum'}
+                          {journal.category || 'Umum'}
                         </div>
 
-                        {/* Title: Bold Uppercase */}
                         <h3 className="text-sm sm:text-base font-extrabold text-[#3b1262] group-hover:text-purple-700 tracking-tight leading-snug uppercase mb-2.5">
                           {journal.title}
                         </h3>
 
-                        {/* CRITICAL USER REQUIREMENT:
-                            "ubah tag di bawah judul jurrnalnya itu menjadi author, tahun, dan rating (1-5)"
-                            Styled as pills in SukaBaca harmonious tones */}
                         <div className="flex items-center gap-2 flex-wrap">
-                          {/* 1. Author Tag (Yellow/Amber Pill) */}
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-[#fef3c7] text-[#92400e] border border-[#fde68a] px-2.5 py-0.5 rounded-full">
                             <User size={11} strokeWidth={2.5} />
                             <span>{journal.author}</span>
                           </span>
 
-                          {/* 2. Tahun Tag (Purple/Indigo Pill) */}
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-purple-100 text-purple-800 border border-purple-200 px-2.5 py-0.5 rounded-full">
                             <Calendar size={11} strokeWidth={2.5} />
-                            <span>{journal.year || '2025'}</span>
+                            <span>{journal.year || '2026'}</span>
                           </span>
 
-                          {/* 3. Rating Tag (1-5) (Lilac / Fuchsia Pill) */}
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-fuchsia-50 text-fuchsia-800 border border-fuchsia-200 px-2.5 py-0.5 rounded-full">
                             <Star size={11} fill="currentColor" className="text-amber-500" />
-                            <span>{ratingValue} / 5</span>
+                            <span>{ratingLabel}</span>
                           </span>
 
-                          {/* Format badge */}
                           <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
                             {journal.formatFile || 'PDF'}
                           </span>

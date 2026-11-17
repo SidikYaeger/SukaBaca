@@ -10,36 +10,44 @@ export default function ArticleDetailPage() {
   const journalId = id || 1;
 
   const [journal, setJournal] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [ringkasan, setRingkasan] = useState(null);
   const [reviews, setReviews] = useState([]);
-  const [ratingStats, setRatingStats] = useState({ avg: 5.0, count: 0 });
+  const [ratingStats, setRatingStats] = useState({ avg: 0, count: 0 });
 
-  // Review Form State
   const [userRating, setUserRating] = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState('');
   const [reviewerName, setReviewerName] = useState('');
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [reviewError, setReviewError] = useState('');
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
+    setLoading(true);
     const loadData = async () => {
       const data = await store.fetchJournalById(journalId);
-      if (isMounted && data) {
-        setJournal(data);
+      if (!isMounted) return;
+      if (!data) {
+        setJournal(null);
+        setLoading(false);
+        return;
       }
-      const summary = await store.fetchRingkasan(journalId);
-      if (isMounted) {
-        setRingkasan(summary);
-      }
-      const revsData = await store.fetchReviews(journalId);
-      if (isMounted && revsData) {
+      setJournal(data);
+      setLoading(false);
+      const [summary, revsData] = await Promise.all([
+        store.fetchRingkasan(journalId),
+        store.fetchReviews(journalId)
+      ]);
+      if (!isMounted) return;
+      setRingkasan(summary);
+      if (revsData) {
         setReviews(revsData.reviews);
         setRatingStats({ avg: revsData.averageRating, count: revsData.totalReviews });
       }
       const auth = store.getAuth();
-      if (isMounted && auth.user) {
+      if (auth.user) {
         setReviewerName(auth.user);
       }
     };
@@ -50,28 +58,33 @@ export default function ArticleDetailPage() {
   const handleAddReview = async (e) => {
     e.preventDefault();
     if (!comment.trim()) return;
+    setReviewError('');
 
-    const author = reviewerName.trim() || 'Glen';
-    const newRev = await store.apiAddReview({
-      journalId: Number(journalId),
-      author,
-      rating: userRating,
-      komentar: comment.trim()
-    });
+    const author = reviewerName.trim() || 'Pengguna';
+    try {
+      const newRev = await store.apiAddReview({
+        journalId: Number(journalId),
+        author,
+        rating: userRating,
+        komentar: comment.trim()
+      });
 
-    setReviews([newRev, ...reviews]);
-    const updatedStats = store.getAverageRating(journalId);
-    setRatingStats(updatedStats);
-    setComment('');
-    setReviewSubmitted(true);
-    setTimeout(() => setReviewSubmitted(false), 3000);
+      const updatedReviews = [newRev, ...reviews];
+      setReviews(updatedReviews);
+      const updatedStats = store.getAverageRating(journalId);
+      setRatingStats(updatedStats);
+      setComment('');
+      setReviewSubmitted(true);
+      setTimeout(() => setReviewSubmitted(false), 3000);
+    } catch (err) {
+      setReviewError(err.message || 'Gagal mengirim ulasan');
+    }
   };
 
   const handleDownload = async () => {
     await store.apiRecordDownload(journalId);
     setJournal(prev => prev ? { ...prev, download: (Number(prev.download) || 0) + 1 } : prev);
 
-    // Trigger mock/real file download of the summary
     const element = document.createElement("a");
     const file = new Blob([
       `===================================================\n` +
@@ -82,7 +95,7 @@ export default function ArticleDetailPage() {
       `Tanggal: ${journal?.date || '2026'}\n` +
       `Format: ${journal?.formatFile || 'PDF'}\n\n` +
       `Ringkasan Eksekutif:\n` +
-      `${ringkasan?.isi || journal?.snippet || 'Konten ringkasan...'}\n\n` +
+      `${ringkasan?.isi || journal?.abstract || journal?.snippet || ''}\n\n` +
       `Dihasilkan secara otomatis oleh SukaBaca AI Engine.`
     ], { type: 'text/plain;charset=utf-8' });
     element.href = URL.createObjectURL(file);
@@ -95,10 +108,49 @@ export default function ArticleDetailPage() {
     setTimeout(() => setDownloadSuccess(false), 2500);
   };
 
-  if (!journal) return null;
+  if (loading) {
+    return (
+      <div className="flex-1 flex flex-col bg-white min-h-screen pb-20">
+        <Navbar variant="with-back" />
+        <div className="max-w-2xl mx-auto px-5 sm:px-8 w-full mt-8 text-center">
+          <p className="text-sm font-semibold text-gray-500">Memuat ringkasan dari database...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!journal) {
+    return (
+      <div className="page-enter flex-1 flex flex-col bg-[#ededed] min-h-screen pb-20">
+        <Navbar variant="with-back" />
+        <main className="max-w-2xl mx-auto px-5 sm:px-8 w-full mt-6">
+          <div className="bg-white rounded-[28px] border border-gray-100 shadow-sm p-8 sm:p-10 text-center">
+            <FileText size={44} className="mx-auto text-purple-400 mb-3" strokeWidth={1.6} />
+            <h1 className="text-lg sm:text-xl font-extrabold text-gray-900 mb-2">
+              Maaf, jurnal tidak ditemukan
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-600 mb-6">
+              Data jurnal tidak tersedia atau telah dihapus dari database.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/search')}
+              className="py-2.5 px-5 rounded-xl text-white font-bold text-xs sm:text-sm shadow hover:opacity-95 active:scale-95"
+              style={{
+                background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
+                border: '1px solid #333333'
+              }}
+            >
+              Cari Jurnal
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex-1 flex flex-col bg-white min-h-screen pb-20">
+    <div className="page-enter flex-1 flex flex-col bg-white min-h-screen pb-20">
       {/* Top Navbar */}
       <Navbar variant="with-back" />
 
@@ -185,33 +237,43 @@ export default function ArticleDetailPage() {
           </div>
         </div>
 
-        {/* Structured Sections */}
-        <section className="mb-8 bg-gray-50/80 p-5 rounded-2xl border border-gray-100">
+        <section className="mb-10 bg-gray-50/80 p-5 rounded-2xl border border-gray-100">
           <h2 className="text-sm font-bold text-purple-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
             <Sparkles size={16} className="text-purple-600" />
             Ringkasan Eksekutif AI
           </h2>
-          <p className="text-xs sm:text-sm text-gray-800 leading-relaxed font-normal">
-            {ringkasan?.isi || journal.snippet}
-          </p>
-        </section>
-
-        <section className="mb-8">
-          <h2 className="text-lg font-bold text-gray-950 mb-2 tracking-tight">
-            Metodologi & Pengujian
-          </h2>
-          <p className="text-xs sm:text-sm text-gray-700 leading-relaxed font-normal">
-            Penelitian ini menerapkan kerangka kerja analitis dengan parameter pengujian terukur. Evaluasi dilakukan secara berulang untuk memvalidasi hipotesis awal dengan derajat akurasi tinggi serta meminimalkan bias eksperimental.
-          </p>
-        </section>
-
-        <section className="mb-10">
-          <h2 className="text-lg font-bold text-gray-950 mb-2 tracking-tight">
-            Kesimpulan & Implikasi Praktis
-          </h2>
-          <p className="text-xs sm:text-sm text-gray-700 leading-relaxed font-normal">
-            Hasil pengujian menunjukkan keselarasan yang konsisten dengan teori dasar. Rekomendasi praktis ditujukan bagi peneliti dan praktisi untuk mengadopsi standar pengujian yang lebih komprehensif dalam implementasi perangkat lunak maupun rekayasa sistem.
-          </p>
+          {ringkasan?.isi ? (
+            <div className="space-y-2">
+              <p className="text-xs sm:text-sm text-gray-800 leading-relaxed font-normal whitespace-pre-line">
+                {ringkasan.isi}
+              </p>
+              {ringkasan.model && (
+                <p className="text-[11px] text-gray-500 font-medium">
+                  Model: {ringkasan.model}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="py-4 text-center">
+              <p className="text-xs sm:text-sm font-semibold text-gray-700 mb-1">
+                Maaf, ringkasan AI belum tersedia untuk jurnal ini.
+              </p>
+              <p className="text-xs text-gray-500 mb-4">
+                Buka dokumen terlebih dahulu lalu klik tombol Summarize with AI.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate(`/journal/${journal.id}`)}
+                className="py-2 px-4 rounded-xl text-white font-semibold text-xs shadow hover:opacity-95 active:scale-95"
+                style={{
+                  background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
+                  border: '1px solid #333333'
+                }}
+              >
+                Lihat & Ringkas Jurnal
+              </button>
+            </div>
+          )}
         </section>
 
         <hr className="border-gray-200 mb-10" />
@@ -233,7 +295,7 @@ export default function ArticleDetailPage() {
             <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-2 text-center">
               <div className="flex items-center justify-center gap-1 text-amber-500 text-lg font-black">
                 <Star size={20} fill="currentColor" />
-                {ratingStats.avg}
+                {ratingStats.count > 0 ? ratingStats.avg : '—'}
               </div>
               <span className="text-[10px] text-gray-500 font-semibold">
                 {ratingStats.count} Total Ulasan
@@ -290,7 +352,7 @@ export default function ArticleDetailPage() {
 
             <div className="flex items-center justify-between">
               <span className="text-[11px] text-gray-400">
-                Masuk sebagai: <strong>{reviewerName || 'Glen'}</strong>
+                Masuk sebagai: <strong>{reviewerName || 'Tamu (Belum login)'}</strong>
               </span>
 
               <button
@@ -305,6 +367,12 @@ export default function ArticleDetailPage() {
               </button>
             </div>
 
+            {reviewError && (
+              <div className="mt-3 p-2 bg-red-50 text-red-700 text-xs rounded-lg text-center font-medium border border-red-200">
+                {reviewError}
+              </div>
+            )}
+
             {reviewSubmitted && (
               <div className="mt-3 p-2 bg-emerald-50 text-emerald-700 text-xs rounded-lg text-center font-medium border border-emerald-200">
                 Ulasan Anda berhasil disimpan!
@@ -312,43 +380,52 @@ export default function ArticleDetailPage() {
             )}
           </form>
 
-          {/* Reviews List */}
           <div className="space-y-3">
-            {reviews.map((rev) => (
-              <div key={rev.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-2xs">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-purple-100 text-purple-700 font-bold text-xs flex items-center justify-center">
-                      {rev.author.slice(0, 1).toUpperCase()}
-                    </div>
-                    <div>
-                      <span className="font-bold text-xs text-gray-900 block leading-tight">
-                        {rev.author}
-                      </span>
-                      <span className="text-[10px] text-gray-400">
-                        {rev.createdAt}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Stars display */}
-                  <div className="flex items-center gap-0.5 text-amber-400">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        size={14}
-                        fill={i < rev.rating ? 'currentColor' : 'none'}
-                        className={i < rev.rating ? 'text-amber-400' : 'text-gray-300'}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <p className="text-xs text-gray-700 leading-relaxed pl-9">
-                  {rev.komentar}
+            {reviews.length === 0 ? (
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center">
+                <p className="text-xs sm:text-sm font-semibold text-gray-700">
+                  Maaf, belum ada ulasan untuk jurnal ini.
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Jadilah pembaca pertama yang memberikan rating dan komentar.
                 </p>
               </div>
-            ))}
+            ) : (
+              reviews.map((rev) => (
+                <div key={rev.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-2xs">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-purple-100 text-purple-700 font-bold text-xs flex items-center justify-center">
+                        {rev.author.slice(0, 1).toUpperCase()}
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs text-gray-900 block leading-tight">
+                          {rev.author}
+                        </span>
+                        <span className="text-[10px] text-gray-400">
+                          {rev.createdAt}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-0.5 text-amber-400">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          size={14}
+                          fill={i < rev.rating ? 'currentColor' : 'none'}
+                          className={i < rev.rating ? 'text-amber-400' : 'text-gray-300'}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-gray-700 leading-relaxed pl-9">
+                    {rev.komentar}
+                  </p>
+                </div>
+              ))
+            )}
           </div>
         </section>
       </article>

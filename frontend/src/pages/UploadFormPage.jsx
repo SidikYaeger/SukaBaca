@@ -140,7 +140,7 @@ export default function UploadFormPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-[#ededed] min-h-screen pb-12">
+    <div className="page-enter flex-1 flex flex-col bg-[#ededed] min-h-screen pb-12">
       <Navbar variant="with-back" />
 
       <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-8 mt-2">

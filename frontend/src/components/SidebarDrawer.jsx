@@ -37,13 +37,13 @@ export default function SidebarDrawer({ isOpen, onClose, onLogout }) {
 
           <div className="w-full py-2 px-1 bg-purple-50 rounded-xl flex flex-col items-center text-center border border-purple-100 mb-2">
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-xs mb-1">
-              {(auth.user || 'G').slice(0, 1).toUpperCase()}
+              {(auth.user || 'T').slice(0, 1).toUpperCase()}
             </div>
             <span className="text-[11px] font-bold text-gray-900 truncate max-w-full">
-              {auth.user || 'Glen'}
+              {auth.user || 'Tamu'}
             </span>
             <span className="text-[9px] font-semibold text-purple-700 flex items-center gap-0.5 mt-0.5">
-              <Crown size={10} /> {sub.plan || 'Pro'}
+              <Crown size={10} /> {sub.plan || 'Belum Aktif'}
             </span>
           </div>
 

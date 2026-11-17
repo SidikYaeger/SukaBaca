@@ -25,17 +25,23 @@ export default function UploadHubPage({ onLogout }) {
   }, []);
 
   const handleUpgrade = async () => {
-    const updated = await store.upgradeSubscription('Ultra Academic Pro');
-    setSubscription(updated);
-    setUpgradeSuccess(true);
-    setTimeout(() => {
-      setUpgradeSuccess(false);
+    try {
+      const updated = await store.upgradeSubscription('Ultra Academic Pro');
+      setSubscription(updated);
+      setUpgradeSuccess(true);
+      setTimeout(() => {
+        setUpgradeSuccess(false);
+        setShowUpgradeModal(false);
+      }, 1500);
+    } catch (e) {
       setShowUpgradeModal(false);
-    }, 1500);
+    }
   };
 
   const remainingQuota = Math.max(0, subscription.dailyQuota - subscription.usedToday);
-  const quotaPercent = Math.min(100, Math.round((subscription.usedToday / subscription.dailyQuota) * 100));
+  const quotaPercent = subscription.dailyQuota > 0
+    ? Math.min(100, Math.round((subscription.usedToday / subscription.dailyQuota) * 100))
+    : 0;
 
   return (
     <div className="flex-1 flex flex-col bg-[#ededed] min-h-screen relative">

@@ -66,7 +66,7 @@ export default function LoginPage({ onLoginSuccess }) {
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-center items-center bg-[#ededed] p-4 sm:p-6 min-h-screen">
+    <div className="page-enter flex-1 flex flex-col justify-center items-center bg-[#ededed] p-4 sm:p-6 min-h-screen">
       {/* Centered White Card */}
       <div className="w-full max-w-[360px] bg-white rounded-[32px] p-8 shadow-sm flex flex-col items-center">
         {/* SukaBaca Brand Logo */}
