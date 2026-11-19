@@ -257,3 +257,23 @@ temp/
 ~$*.xls*
 *.stackdump
 core.*
+
+
+# ------------------------------------------------------------------------------
+# 15. Multi-Template Sandbox & Non-Runtime Repo Docs (Push Bookshelf Runtime Only)
+# ------------------------------------------------------------------------------
+templates/arsip/
+templates/ringkas/
+templates/observatorium/
+templates/*/node_modules/
+templates/*/dist/
+templates/*/.vite/
+templates/katalog/public/sukabaca-logo.png
+templates/katalog/src/assets/sukabaca-logo.png
+frontend/
+riil/
+docs/
+scripts/
+*.pdf
+Group 11.png
+README.md
