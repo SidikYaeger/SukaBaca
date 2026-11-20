@@ -75,6 +75,12 @@ export function IntakePage() {
       return;
     }
 
+    if (!file) {
+      setFileError('Lampiran berkas wajib diunggah (PDF, DOCX, DOC, atau TXT).');
+      fileInputRef.current?.focus();
+      return;
+    }
+
     setSubmitting(true);
     try {
       const payload = {
@@ -83,13 +89,10 @@ export function IntakePage() {
         category,
         publishDate: publishDate.trim(),
         abstract: abstractText.trim(),
-        content: content.trim() || undefined
+        content: content.trim() || undefined,
+        fileName: file.name,
+        fileBase64: await fileToBase64(file)
       };
-
-      if (file) {
-        payload.fileName = file.name;
-        payload.fileBase64 = await fileToBase64(file);
-      }
 
       const res = await api.uploadJournal(payload);
       if (res?.journalId) {
@@ -108,9 +111,9 @@ export function IntakePage() {
     return (
       <div className="ruled-card intake-card">
         <div className="auth-slip-head">
-          <h1 className="page-title">Formulir Kartu Baru</h1>
+          <h1 className="page-title">Upload Jurnal</h1>
           <p className="page-lead">
-            Hanya anggota perpustakaan terdaftar yang dapat memasukkan kartu jurnal baru ke dalam lemari katalog.
+            Hanya akun terdaftar yang dapat memasukkan jurnal baru ke dalam katalog.
           </p>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.65rem' }}>
@@ -130,10 +133,7 @@ export function IntakePage() {
   return (
     <div className="ruled-card intake-card">
       <div className="auth-slip-head">
-        <h1 className="page-title">Formulir Kartu Baru</h1>
-        <p className="page-lead">
-          Isi metadata bibliografi di bawah ini untuk mengarsipkan jurnal ke laci kategori. Lampiran berkas bersifat opsional.
-        </p>
+        <h1 className="page-title">Upload Jurnal</h1>
       </div>
 
       {submitError && (
@@ -214,7 +214,7 @@ export function IntakePage() {
 
         <div className="field-group">
           <label htmlFor="intake-category" className="field-label">
-            Laci Kategori *
+            Kategori *
           </label>
           <select
             id="intake-category"
@@ -273,7 +273,7 @@ export function IntakePage() {
 
         <div className="field-group">
           <label htmlFor="intake-file" className="field-label">
-            Lampiran Berkas (Opsional · PDF, DOCX, DOC, TXT · Maks. 8 MB)
+            Lampiran Berkas * (PDF, DOCX, DOC, TXT · Maks. 8 MB)
           </label>
           <div className="file-drop-row">
             <Paperclip size={17} aria-hidden="true" />
@@ -281,6 +281,7 @@ export function IntakePage() {
               ref={fileInputRef}
               id="intake-file"
               type="file"
+              required
               accept=".pdf,.docx,.doc,.txt"
               onChange={handleFileChange}
               disabled={submitting}
@@ -313,7 +314,7 @@ export function IntakePage() {
             ) : (
               <FilePlus2 size={16} aria-hidden="true" />
             )}
-            <span>{submitting ? 'Mengarsipkan...' : 'Masukkan ke Laci Katalog'}</span>
+            <span>{submitting ? 'Mengarsipkan...' : 'Upload'}</span>
           </button>
           <Link to="/" className="btn btn-ghost">
             Batal

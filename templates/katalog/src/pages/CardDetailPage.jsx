@@ -1020,7 +1020,7 @@ export function CardDetailPage() {
 
             <div className="field-group">
               <label htmlFor="edit-category" className="field-label">
-                Laci Kategori
+                Kategori
               </label>
               <select
                 id="edit-category"

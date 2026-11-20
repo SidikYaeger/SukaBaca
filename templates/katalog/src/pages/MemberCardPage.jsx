@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  IdCard,
   Sparkles,
   CheckCircle2,
   AlertCircle,
@@ -63,16 +62,12 @@ export function MemberCardPage() {
   const dailyLimit = 10;
   const remaining = subscription?.isPro ? dailyLimit : Math.max(0, Math.min(dailyLimit, subscription?.usage ?? 0));
   const usedSlots = subscription?.isPro ? 0 : dailyLimit - remaining;
-  const memberCode = user?.userId ? `ANG-${String(user.userId).padStart(4, '0')}` : 'ANG-0000';
 
   return (
     <div>
       <div className="page-head">
         <div>
           <h1 className="page-title">Kartu Anggota Perpustakaan</h1>
-          <p className="page-lead">
-            Status keanggotaan, kuota lubang harian ringkasan AI, dan aktivasi paket Pro Akademik.
-          </p>
         </div>
       </div>
 
@@ -95,13 +90,9 @@ export function MemberCardPage() {
         {/* Physical Library Membership Card */}
         <section className="ruled-card library-card" aria-label="Kartu identitas anggota">
           <div className="library-card-banner">
-            <div>
-              <span className="call-number">{isAuthenticated ? memberCode : 'TAMU'}</span>
-              <h2 className="section-heading" style={{ marginTop: '0.45rem' }}>
-                <IdCard size={19} aria-hidden="true" />
-                <span>{isAuthenticated ? user.name : 'Belum Masuk Anggota'}</span>
-              </h2>
-            </div>
+            <h2 className="section-heading">
+              {isAuthenticated ? user.name || user.username : 'Belum Masuk Anggota'}
+            </h2>
 
             {isAuthenticated ? (
               <span className={`rubber-stamp${subscription?.isPro ? ' is-success' : ''}`}>
@@ -114,9 +105,7 @@ export function MemberCardPage() {
 
           {!isAuthenticated ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-              <p>
-                Masuk atau buat kartu anggota gratis untuk mendapatkan 10 kuota ringkasan AI harian, menyimpan kartu jurnal, dan mencatat riwayat bacaan.
-              </p>
+              <p>Masuk untuk mendapatkan akses lebih</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
                 <Link to="/login" className="btn btn-primary">
                   <LogIn size={16} aria-hidden="true" />
@@ -149,7 +138,7 @@ export function MemberCardPage() {
               </div>
 
               <div style={{ marginBottom: '1rem' }}>
-                <h3 className="dossier-section-label">Lubang Kuota Ringkasan AI Harian</h3>
+                <h3 className="dossier-section-label">Kuota Harian</h3>
                 {subscription.isPro ? (
                   <div className="alert-slip is-success">
                     <Sparkles size={18} aria-hidden="true" style={{ flexShrink: 0, marginTop: '2px' }} />
@@ -225,10 +214,7 @@ export function MemberCardPage() {
 
         {/* Honest Feature Comparison Table */}
         <aside className="tier-table-sheet" aria-label="Perbandingan paket keanggotaan">
-          <h2 className="section-heading">Ketentuan Keanggotaan</h2>
-          <p className="field-hint" style={{ marginTop: '0.3rem' }}>
-            Perbandingan langsung fasilitas berdasarkan konfigurasi server SukaBaca.
-          </p>
+          <h2 className="section-heading">Keuntungan Membership</h2>
 
           <table className="tier-table">
             <thead>

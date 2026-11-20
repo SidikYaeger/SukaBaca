@@ -102,13 +102,7 @@ export function BorrowerSlipPage() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Kartu Pinjam &amp; Riwayat</h1>
-          <p className="page-lead">
-            Catatan cap aktivitas pembacaan, unduhan, ringkasan AI, dan rak kartu yang Anda simpan.
-          </p>
         </div>
-        <span className="call-number">
-          {history.length} Aktivitas · {saved.length} Tersimpan
-        </span>
       </div>
 
       <div className="slip-tabs" role="tablist" aria-label="Filter cap aktivitas">
@@ -155,7 +149,7 @@ export function BorrowerSlipPage() {
               <span>
                 {activeTab === 'SAVED'
                   ? 'Rak Kartu Tersimpan'
-                  : `Slip Cap — ${FILTER_TABS.find((t) => t.id === activeTab)?.label || 'Semua'}`}
+                  : FILTER_TABS.find((t) => t.id === activeTab)?.label || 'Semua'}
               </span>
             </h2>
           </div>

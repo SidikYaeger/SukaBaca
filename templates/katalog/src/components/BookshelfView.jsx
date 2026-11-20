@@ -22,47 +22,63 @@ const EXIT_STAGGER_MS = 5;
 const ENTER_BASE_MS = 380;
 const ENTER_STAGGER_MS = 14;
 
-const CATEGORY_THEMES = {
-  'Artificial Intelligence': 'cerulean',
-  'Teknologi Informasi': 'indigo',
-  'Pendidikan & Metodologi': 'paper',
-  'Arsitektur & Energi': 'slate',
-  'Hukum & Kebijakan': 'plum',
-  'Kesehatan': 'berry',
-  'Ekonomi & Bisnis': 'sky',
-  'Sains & Matematika': 'indigo',
-  'Umum': 'paper'
+const CATEGORY_THEME_POOLS = {
+  'Artificial Intelligence': ['cerulean', 'indigo', 'teal'],
+  'Teknologi Informasi': ['indigo', 'slate', 'cerulean'],
+  'Pendidikan & Metodologi': ['ivory', 'sage', 'ochre'],
+  'Arsitektur & Energi': ['terracotta', 'espresso', 'ochre'],
+  'Hukum & Kebijakan': ['oxblood', 'plum', 'espresso'],
+  'Kesehatan': ['teal', 'forest', 'ivory'],
+  'Ekonomi & Bisnis': ['forest', 'ochre', 'indigo'],
+  'Sains & Matematika': ['cerulean', 'forest', 'slate'],
+  'Umum': ['ivory', 'plum', 'terracotta']
 };
 
-const FALLBACK_THEMES = ['cerulean', 'paper', 'plum', 'indigo', 'sky', 'slate', 'berry'];
+const ALL_THEMES = [
+  'cerulean',
+  'oxblood',
+  'forest',
+  'ochre',
+  'indigo',
+  'plum',
+  'terracotta',
+  'teal',
+  'ivory',
+  'espresso',
+  'sage',
+  'slate'
+];
 
 export function getBookVisualProps(journal, index = 0) {
   const idNum = Number(journal?.id) || index + 1;
-  const seed = (idNum * 37 + (journal?.title?.length || 12) * 13) >>> 0;
-  const theme =
-    CATEGORY_THEMES[journal?.category] ||
-    FALLBACK_THEMES[seed % FALLBACK_THEMES.length];
+  const titleLen = journal?.title?.length || 12;
+  const seed = (idNum * 37 + titleLen * 13 + (idNum % 7) * 29) >>> 0;
+  const pool = CATEGORY_THEME_POOLS[journal?.category] || ALL_THEMES;
+  const theme = pool[seed % pool.length];
 
-  // Staggered spine heights (184px – 232px) and widths (56px – 72px)
-  const height = 184 + (seed % 5) * 12;
+  // Staggered realistic hardcover heights (182px – 234px) and spine thicknesses (56px – 72px)
+  const height = 182 + (seed % 6) * 10 + ((seed >> 2) % 2) * 2;
   const width = 56 + ((seed >> 3) % 4) * 5 + (((seed >> 3) % 4) === 3 ? 1 : 0);
-  const bandStyle = (seed >> 5) % 3; // 0: double bands, 1: top cap, 2: thin rule
+  // 0: raised leather ribs, 1: publisher color cap, 2: framed title plate, 3: double foil & colophon
+  const bandStyle = (seed >> 5) % 4;
+  // Subtle natural depth variation (some volumes sit slightly deeper on the wooden deck)
+  const recess = ((seed >> 7) % 3) * 2;
 
-  return { theme, height, width, bandStyle };
+  return { theme, height, width, bandStyle, recess };
 }
 
 /**
- * Compute how many books fit comfortably across one wall shelf.
- * At standard 1200px container width (~1080px inner shelf), returns 15 per row
+ * Compute how many books fit comfortably across one 3D bookcase shelf bay.
+ * At standard 1200px container width (~1084px inner bay), returns 15 per row
  * -> 30 journals across 2 rows of shelves.
  */
 function computeBooksPerShelf(shelfBoxWidth, viewportWidth) {
   if (shelfBoxWidth > 0) {
     const isCompact = viewportWidth <= 640;
-    const horizPad = isCompact ? 38 : 82;
+    const horizPad = isCompact ? 34 : 76;
     const inner = Math.max(200, shelfBoxWidth - horizPad);
-    const slotTarget = isCompact ? 56 : 71;
-    return Math.max(4, Math.min(15, Math.floor((inner + 5) / slotTarget)));
+    const slotTarget = isCompact ? 54 : 70;
+    return Math.max(4, Math.min(15, Math.floor((inner + 4) / slotTarget)));
   }
   if (viewportWidth >= 1140) return 15;
   if (viewportWidth >= 960) return 12;
@@ -336,79 +352,128 @@ export function BookshelfView({ journals, onToggleSave, busySaveId }) {
         </nav>
       </SmoothCollapse>
 
-      {/* Floating Wall Shelves (1 to 2 tiers based on visible journal count) */}
-      <div ref={wallRef} className={`wall-shelves${motionClass}`}>
-        {shelves.map((row, rowIndex) => {
-          const isFullRow = row.length === booksPerShelf && journals.length > 0;
-          return (
-            <div key={rowIndex} className="shelf-tier">
-              <div
-                className={`shelf-books-row${isFullRow ? ' is-full-row' : ''}`}
-                role="list"
-                aria-label={`Rak ${rowIndex + 1}`}
-              >
-                {journals.length === 0 && rowIndex === 0 ? (
-                  <div className="shelf-empty-whisper">Tidak ada jurnal yang ditemukan</div>
-                ) : (
-                  row.map((journal, colIndex) => {
-                    const slotIndex = rowIndex * booksPerShelf + colIndex;
-                    const visual = getBookVisualProps(journal);
-                    const isHighlighted = highlightedId === journal.id;
-                    const isOpening = openingBook?.journal?.id === journal.id;
-                    const isLeaning =
-                      row.length >= 2 &&
-                      colIndex === row.length - 1 &&
-                      !isFullRow;
+      {/* Front-Facing 3D Wooden Library Bookcase (1 to 2 recessed tiers) */}
+      <div ref={wallRef} className={`wall-shelves bookcase-cabinet${motionClass}`}>
+        {/* Architectural Crown Cornice Top Molding */}
+        <div className="bookcase-cornice" aria-hidden="true">
+          <span className="bookcase-cornice-lip" />
+          <span className="bookcase-cornice-frieze" />
+        </div>
 
-                    return (
-                      <div
-                        key={journal.id}
-                        className="shelf-book-slot"
-                        role="listitem"
-                        style={{
-                          '--i': slotIndex,
-                          '--book-w': `${visual.width}px`,
-                          '--book-grow': visual.width
-                        }}
-                      >
-                        <button
-                          type="button"
-                          className={`book-spine is-theme-${visual.theme} is-band-${visual.bandStyle}${
-                            isHighlighted ? ' is-highlighted' : ''
-                          }${isOpening ? ' is-opening' : ''}${isLeaning ? ' is-leaning' : ''}`}
-                          style={{
-                            '--book-h': `${visual.height}px`
-                          }}
-                          onMouseEnter={() => setHighlightedId(journal.id)}
-                          onFocus={() => setHighlightedId(journal.id)}
-                          onClick={() => handleOpenBook(journal, visual)}
-                          aria-label={`Buka buku jurnal: ${journal.title} oleh ${journal.author} (${journal.publishDate})`}
-                        >
-                          {journal.isSaved && <span className="book-ribbon" aria-hidden="true" />}
-                          <span className="book-spine-cap" aria-hidden="true" />
-                          <span className="book-spine-title">{journal.title}</span>
-                          <span className="book-spine-foot">
-                            <span className="book-spine-year">{journal.publishDate || '—'}</span>
-                          </span>
-                        </button>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+        {/* Main Wooden Cabinet Carcass */}
+        <div className="bookcase-carcass">
+          <span className="bookcase-stile is-left" aria-hidden="true" />
 
-              {/* Wall-mounted Floating Shelf Plank + Side Brackets */}
-              <div className="shelf-plank-wrap" aria-hidden="true">
-                <span className="shelf-bracket is-left" />
-                <div className="shelf-plank">
-                  <span className="shelf-plank-top" />
-                  <span className="shelf-plank-front" />
+          <div className="bookcase-bays">
+            {shelves.map((row, rowIndex) => {
+              const isFullRow = row.length === booksPerShelf && journals.length > 0;
+              const showBookend = !isFullRow && row.length > 0;
+              return (
+                <div key={rowIndex} className="shelf-tier">
+                  <div className="shelf-bay">
+                    {/* Recessed inner perspective walls & soft overhead gallery light */}
+                    <span className="shelf-inner-wall is-left" aria-hidden="true" />
+                    <span className="shelf-inner-wall is-right" aria-hidden="true" />
+                    <span className="shelf-bay-glow" aria-hidden="true" />
+
+                    <div
+                      className={`shelf-books-row${isFullRow ? ' is-full-row' : ''}`}
+                      role="list"
+                      aria-label={`Rak ${rowIndex + 1}`}
+                    >
+                      {journals.length === 0 && rowIndex === 0 ? (
+                        <div className="shelf-empty-whisper">
+                          Tidak ada jurnal yang ditemukan
+                        </div>
+                      ) : (
+                        <>
+                          {row.map((journal, colIndex) => {
+                            const slotIndex = rowIndex * booksPerShelf + colIndex;
+                            const visual = getBookVisualProps(journal, slotIndex);
+                            const isHighlighted = highlightedId === journal.id;
+                            const isOpening = openingBook?.journal?.id === journal.id;
+                            const isLeaning =
+                              row.length >= 2 &&
+                              colIndex === row.length - 1 &&
+                              !isFullRow;
+
+                            return (
+                              <div
+                                key={journal.id}
+                                className="shelf-book-slot"
+                                role="listitem"
+                                style={{
+                                  '--i': slotIndex,
+                                  '--book-w': `${visual.width}px`,
+                                  '--book-grow': visual.width
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  className={`book-spine is-theme-${visual.theme} is-band-${visual.bandStyle}${
+                                    isHighlighted ? ' is-highlighted' : ''
+                                  }${isOpening ? ' is-opening' : ''}${isLeaning ? ' is-leaning' : ''}`}
+                                  style={{
+                                    '--book-h': `${visual.height}px`,
+                                    '--book-recess': `${visual.recess}px`
+                                  }}
+                                  onMouseEnter={() => setHighlightedId(journal.id)}
+                                  onFocus={() => setHighlightedId(journal.id)}
+                                  onClick={() => handleOpenBook(journal, visual)}
+                                  aria-label={`Buka buku jurnal: ${journal.title} oleh ${journal.author} (${journal.publishDate})`}
+                                >
+                                  {/* 3D Top Paper Page-Block Crown Edge */}
+                                  <span className="book-top-pages" aria-hidden="true" />
+
+                                  {journal.isSaved && (
+                                    <span className="book-ribbon" aria-hidden="true" />
+                                  )}
+
+                                  <span className="book-spine-cap" aria-hidden="true" />
+                                  <span className="book-spine-title">{journal.title}</span>
+                                  <span className="book-spine-foot">
+                                    <span className="book-spine-colophon" aria-hidden="true" />
+                                    <span className="book-spine-year">
+                                      {journal.publishDate || '—'}
+                                    </span>
+                                  </span>
+                                </button>
+                              </div>
+                            );
+                          })}
+
+                          {/* Weighted 3D Metal Library Bookend on Partial Rows */}
+                          {showBookend && (
+                            <span className="shelf-bookend" aria-hidden="true">
+                              <span className="shelf-bookend-blade" />
+                              <span className="shelf-bookend-foot" />
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3D Perspective Wooden Shelf Deck + Beveled Front Fascia */}
+                  <div className="shelf-plank-wrap" aria-hidden="true">
+                    <div className="shelf-plank">
+                      <span className="shelf-plank-top" />
+                      <span className="shelf-plank-front" />
+                    </div>
+                  </div>
                 </div>
-                <span className="shelf-bracket is-right" />
-              </div>
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+
+          <span className="bookcase-stile is-right" aria-hidden="true" />
+        </div>
+
+        {/* Grounded Solid Wooden Plinth Base */}
+        <div className="bookcase-plinth" aria-hidden="true">
+          <span className="bookcase-plinth-trim" />
+          <span className="bookcase-plinth-kick" />
+        </div>
       </div>
 
       {/* 3D Book-Opening Transition Stage (portaled to body so backdrop covers 100% of viewport) */}
