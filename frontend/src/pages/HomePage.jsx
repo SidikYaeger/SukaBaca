@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search as SearchIcon } from 'lucide-react';
 import Header from '../components/layout/Header';
-import { ACADEMIC_TOPICS } from '../config/app.config';
+import { ACADEMIC_TOPICS, JOURNAL_CATEGORIES } from '../config/app.config';
 
 export default function HomePage() {
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -45,8 +45,8 @@ export default function HomePage() {
     navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search');
   };
 
-  const handleTopicClick = (topic) => {
-    navigate(`/search?q=${encodeURIComponent(topic)}`);
+  const handleCategoryClick = (category) => {
+    navigate(`/search?category=${encodeURIComponent(category)}`);
   };
 
   return (
@@ -72,7 +72,7 @@ export default function HomePage() {
 
           {/* Subtitle */}
           <p className="text-base sm:text-lg text-[#64748B] leading-relaxed max-w-2xl mx-auto font-normal">
-            Akses jutaan publikasi ilmiah, artikel jurnal terindeks, dan ringkasan saintifik berbasis AI dalam satu repositori terstandarisasi.
+            Akses publikasi ilmiah dan ringkasan berbasis AI.
           </p>
 
           {/* Centered Unified Search Bar */}
@@ -101,13 +101,13 @@ export default function HomePage() {
               Topik Riset Terpopuler
             </span>
             <div className="flex flex-wrap justify-center gap-2">
-              {ACADEMIC_TOPICS.map((topic) => (
+              {JOURNAL_CATEGORIES.map((category) => (
                 <button
-                  key={topic}
-                  onClick={() => handleTopicClick(topic)}
+                  key={category}
+                  onClick={() => handleCategoryClick(category)}
                   className="text-xs px-3 py-1.5 border border-[#CBD5E1] bg-[#FFFFFF] hover:bg-[#F8FAFC] hover:border-[#0F172A] hover:text-[#0F172A] font-medium transition-all shadow-hard-sm active:translate-x-0.5 active:translate-y-0.5"
                 >
-                  {topic}
+                  {category}
                 </button>
               ))}
             </div>
@@ -117,20 +117,11 @@ export default function HomePage() {
 
         {/* Feature Cards Section (No Boxed Icons) */}
         <section className="space-y-8 pt-4">
-          <div className="text-center max-w-xl mx-auto space-y-2">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
-              Dirancang untuk Ekosistem Akademik
-            </h2>
-            <p className="text-xs sm:text-sm text-[#64748B]">
-              Infrastruktur discovery yang cepat, bersih, dan berorientasi presisi bagi akademisi dan periset.
-            </p>
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="p-6 bg-[#F8FAFC] border border-[#CBD5E1] shadow-hard-sm space-y-2.5">
               <h3 className="text-base font-bold text-[#0F172A]">Smart Filter & Discovery</h3>
               <p className="text-xs text-[#64748B] leading-relaxed">
-                Filter rentang tahun publikasi, ketersediaan naskah penuh, bidang studi, dan urutkan berdasarkan metrik sitasi atau jumlah pembaca.
+                Filter tahun publikasi, bidang studi dan urut berdasarkan jumlah pembaca/download.
               </p>
             </div>
 
@@ -144,7 +135,7 @@ export default function HomePage() {
             <div className="p-6 bg-[#F8FAFC] border border-[#CBD5E1] shadow-hard-sm space-y-2.5">
               <h3 className="text-base font-bold text-[#0F172A]">Peer Reviews & Discussions</h3>
               <p className="text-xs text-[#64748B] leading-relaxed">
-                Tingkatkan validitas saintifik melalui catatan ulasan, pemberian rating bintang, dan diskusi terbuka antar sesama akademisi.
+                Tingkatkan efesiensi dan kualitas jurnal melalui catatan ulasan, pemberian rating bintang, dan diskusi terbuka antar sesama akademisi.
               </p>
             </div>
           </div>

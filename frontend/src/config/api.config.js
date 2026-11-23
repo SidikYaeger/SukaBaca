@@ -31,7 +31,9 @@ export const API_ENDPOINTS = {
   // Subscriptions
   SUBSCRIPTIONS: `${API_BASE_URL}/subscriptions`,
   SUBSCRIPTION_CURRENT: `${API_BASE_URL}/subscriptions/current`,
-  SUBSCRIPTION_UPGRADE: `${API_BASE_URL}/subscriptions/upgrade`,
+  SUBSCRIPTION_CHECKOUT: `${API_BASE_URL}/subscriptions/checkout`,
+  SUBSCRIPTION_CHECKOUT_CONFIRM: `${API_BASE_URL}/subscriptions/checkout/confirm`,
+  SUBSCRIPTION_UPGRADE: `${API_BASE_URL}/subscriptions/checkout`,
   SUBSCRIPTION_CANCEL: (id) => `${API_BASE_URL}/subscriptions/${id}/cancel`,
 
   // History & Bookmarks

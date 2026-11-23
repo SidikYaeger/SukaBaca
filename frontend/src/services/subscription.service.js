@@ -10,21 +10,26 @@ export const normalizeSubscription = (sub) => {
       plan: 'Free Access',
       rawPlan: 'free',
       status: 'active',
-      dailyQuota: 5,
+      dailyQuota: 10,
       usedToday: 0,
       periodEnd: null,
       subscriptionId: null
     };
   }
 
+  const rawPlan = sub.rawPlan
+    ? String(sub.rawPlan).toLowerCase()
+    : ((sub.plan || '').toLowerCase().includes('pro') ? 'pro' : 'free');
+  const isPro = rawPlan === 'pro' && (sub.status || 'active').toLowerCase() === 'active';
+
   return {
-    plan: sub.plan || 'Free Access',
-    rawPlan: (sub.plan || '').toLowerCase().includes('pro') ? 'pro' : 'free',
+    plan: isPro ? 'Ultra Academic Pro' : 'Free Access',
+    rawPlan: isPro ? 'pro' : 'free',
     status: sub.status || 'active',
-    dailyQuota: sub.dailyQuota != null ? Number(sub.dailyQuota) : 5,
+    dailyQuota: sub.dailyQuota != null ? Number(sub.dailyQuota) : (isPro ? 9999 : 10),
     usedToday: Number(sub.usedToday) || 0,
-    periodEnd: sub.periodEnd || null,
-    subscriptionId: sub.id || null
+    periodEnd: sub.periodEnd || sub.currentPeriodEnd || null,
+    subscriptionId: sub.subscriptionId || sub.id || null
   };
 };
 
@@ -38,11 +43,26 @@ export const subscriptionService = {
     }
   },
 
-  async upgrade(planName = 'Ultra Academic Pro') {
-    const data = await request(API_ENDPOINTS.SUBSCRIPTION_UPGRADE, {
+  async createCheckoutSession(plan = 'pro') {
+    return request(API_ENDPOINTS.SUBSCRIPTION_CHECKOUT, {
       method: 'POST',
-      body: JSON.stringify({ plan: planName })
+      body: JSON.stringify({ plan })
     });
+  },
+
+  async confirmCheckout(sessionId) {
+    const data = await request(API_ENDPOINTS.SUBSCRIPTION_CHECKOUT_CONFIRM, {
+      method: 'POST',
+      body: JSON.stringify({ sessionId })
+    });
+    return normalizeSubscription(data);
+  },
+
+  async upgrade(planName = 'pro') {
+    const data = await this.createCheckoutSession(planName);
+    if (data?.checkoutUrl) {
+      return data;
+    }
     return normalizeSubscription(data);
   },
 

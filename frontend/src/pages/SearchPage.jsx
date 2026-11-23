@@ -20,6 +20,7 @@ import { useAuth } from '../context/AuthContext';
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
+  const initialCategory = searchParams.get('category') || '';
   const currentYear = new Date().getFullYear();
 
   const [searchQuery, setSearchQuery] = useState(initialQuery);
@@ -37,7 +38,7 @@ export default function SearchPage() {
   const [customMaxYear, setCustomMaxYear] = useState('');
   const [onlyAbstract, setOnlyAbstract] = useState(false);
   const [onlyWithFile, setOnlyWithFile] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [selectedFormat, setSelectedFormat] = useState('');
   const [sortOption, setSortOption] = useState('views_desc');
   const [savedOnly, setSavedOnly] = useState(false);
@@ -49,6 +50,18 @@ export default function SearchPage() {
     pubDateRange || onlyAbstract || onlyWithFile || selectedCategory || selectedFormat || savedOnly
   );
 
+  const syncSearchParams = (qVal, categoryVal) => {
+    const params = {};
+    if (qVal) params.q = qVal;
+    if (categoryVal) params.category = categoryVal;
+    setSearchParams(params);
+  };
+
+  const handleCategoryChange = (category) => {
+    setSelectedCategory(category);
+    syncSearchParams(activeQuery.trim(), category);
+  };
+
   const handleResetFilters = () => {
     setPubDateRange('');
     setCustomMinYear('');
@@ -58,6 +71,7 @@ export default function SearchPage() {
     setSelectedCategory('');
     setSelectedFormat('');
     setSavedOnly(false);
+    syncSearchParams(activeQuery.trim(), '');
   };
 
   const executeSearch = useCallback(async () => {
@@ -125,6 +139,12 @@ export default function SearchPage() {
   ]);
 
   useEffect(() => {
+    setSearchQuery(initialQuery);
+    setActiveQuery(initialQuery);
+    setSelectedCategory(initialCategory);
+  }, [initialQuery, initialCategory]);
+
+  useEffect(() => {
     executeSearch();
   }, [executeSearch]);
 
@@ -132,13 +152,13 @@ export default function SearchPage() {
     e.preventDefault();
     const q = searchQuery.trim();
     setActiveQuery(q);
-    setSearchParams(q ? { q } : {});
+    syncSearchParams(q, selectedCategory);
   };
 
   const handleClearQuery = () => {
     setSearchQuery('');
     setActiveQuery('');
-    setSearchParams({});
+    syncSearchParams('', selectedCategory);
   };
 
   const handleToggleBookmark = async (id) => {
@@ -212,6 +232,12 @@ export default function SearchPage() {
                 {activeQuery ? `"${activeQuery}"` : 'ALL_PUBLICATIONS'}
               </span>
 
+              {selectedCategory && (
+                <span className="font-bold text-[#0593C6] bg-[#FFFFFF] px-2 py-0.5 border border-[#0593C6]/40 font-mono">
+                  {selectedCategory}
+                </span>
+              )}
+
               {hasActiveFilters && (
                 <span className="dokmeh-badge-active">
                   <span className="w-1.5 h-1.5 bg-[#D83995]" />
@@ -266,7 +292,7 @@ export default function SearchPage() {
               onlyWithFile={onlyWithFile}
               setOnlyWithFile={setOnlyWithFile}
               selectedCategory={selectedCategory}
-              setSelectedCategory={setSelectedCategory}
+              setSelectedCategory={handleCategoryChange}
               selectedFormat={selectedFormat}
               setSelectedFormat={setSelectedFormat}
               yearCounts={yearCounts}

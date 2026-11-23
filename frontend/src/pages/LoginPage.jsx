@@ -54,9 +54,6 @@ export default function LoginPage() {
             <h1 className="text-2xl font-extrabold text-[#0F172A] tracking-tight">
               Masuk ke SukaBaca
             </h1>
-            <p className="text-xs text-[#64748B]">
-              Akses riwayat riset, simpanan naskah, dan ringkasan AI Anda.
-            </p>
           </div>
 
           {errorMessage && (

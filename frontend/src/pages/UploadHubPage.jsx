@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Upload, Search, Crown, History, PlusCircle } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Upload, Search, Crown, History, PlusCircle, CheckCircle2, AlertCircle } from 'lucide-react';
 import Header from '../components/layout/Header';
 import SidebarDrawer from '../components/layout/SidebarDrawer';
 import UpgradeModal from '../components/UpgradeModal';
@@ -10,9 +10,52 @@ import { useSubscription } from '../context/SubscriptionContext';
 export default function UploadHubPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [checkoutBanner, setCheckoutBanner] = useState(null);
+  const handledCheckoutRef = useRef('');
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { subscription, remainingQuota, isPro } = useSubscription();
+  const { subscription, remainingQuota, isPro, confirmCheckout, refreshSubscription } = useSubscription();
+
+  useEffect(() => {
+    const checkoutStatus = searchParams.get('checkout');
+    const sessionId = searchParams.get('session_id');
+    if (!checkoutStatus) return;
+
+    const dedupeKey = `${checkoutStatus}:${sessionId || ''}`;
+    if (handledCheckoutRef.current === dedupeKey) return;
+    handledCheckoutRef.current = dedupeKey;
+
+    if (checkoutStatus === 'success') {
+      const verify = async () => {
+        try {
+          if (sessionId) {
+            await confirmCheckout(sessionId);
+          } else {
+            await refreshSubscription();
+          }
+          setCheckoutBanner({
+            type: 'success',
+            message: 'Pembayaran berhasil! Paket Ultra Academic Pro kini aktif pada akun Anda.'
+          });
+        } catch (err) {
+          setCheckoutBanner({
+            type: 'error',
+            message: err.message || 'Gagal memverifikasi pembayaran Stripe. Silakan muat ulang halaman.'
+          });
+        } finally {
+          setSearchParams({}, { replace: true });
+        }
+      };
+      verify();
+    } else if (checkoutStatus === 'cancel') {
+      setCheckoutBanner({
+        type: 'info',
+        message: 'Pembayaran Stripe dibatalkan. Anda masih menggunakan paket saat ini.'
+      });
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams, confirmCheckout, refreshSubscription]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FFFFFF] text-[#334155] font-sans selection:bg-[#0593C6] selection:text-white">
@@ -20,20 +63,44 @@ export default function UploadHubPage() {
       <SidebarDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-8 py-8 w-full space-y-8">
-        
+        {checkoutBanner && (
+          <div
+            className={`p-3.5 border text-xs flex items-center justify-between gap-3 ${
+              checkoutBanner.type === 'success'
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                : checkoutBanner.type === 'error'
+                ? 'bg-red-50 border-red-300 text-red-700'
+                : 'bg-[#F8FAFC] border-[#CBD5E1] text-[#334155]'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {checkoutBanner.type === 'success' ? (
+                <CheckCircle2 size={16} className="shrink-0" />
+              ) : (
+                <AlertCircle size={16} className="shrink-0" />
+              )}
+              <span className="font-medium">{checkoutBanner.message}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCheckoutBanner(null)}
+              className="text-[11px] font-bold uppercase font-mono underline cursor-pointer"
+            >
+              Tutup
+            </button>
+          </div>
+        )}
+
         {/* Scholar Banner */}
         <section className="p-6 sm:p-8 bg-[#F8FAFC] border-2 border-[#0F172A] shadow-hard flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-2.5 py-0.5 bg-[#FFFFFF] border border-[#0F172A] text-xs font-semibold text-[#0593C6]">
               <span className="w-2 h-2 bg-[#0593C6]" />
-              <span className="font-mono uppercase text-[11px] tracking-wider">Scholar Workspace</span>
+              <span className="font-mono uppercase text-[11px] tracking-wider">Sukabaca App</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
               Selamat Datang, {user || 'Peneliti'}
             </h1>
-            <p className="text-xs sm:text-sm text-[#64748B] max-w-xl">
-              Pusat pengelolaan publikasi ilmiah, unggah naskah baru, periksa kuota ringkasan AI, dan pelacakan arsip riset Anda.
-            </p>
           </div>
 
           {/* Subscription status card */}
@@ -48,7 +115,7 @@ export default function UploadHubPage() {
             <div className="flex items-center justify-between pt-1">
               <span className="text-xs text-[#64748B] uppercase font-mono text-[11px]">Kuota Harian:</span>
               <span className="font-mono text-xs font-bold text-[#0593C6] bg-[#0593C6]/10 px-2 py-0.5 border border-[#0593C6]/30 tabular-nums">
-                {remainingQuota} Sisa
+                {isPro ? 'Unlimited' : `${remainingQuota} Sisa`}
               </span>
             </div>
 
@@ -77,7 +144,7 @@ export default function UploadHubPage() {
                 Unggah Jurnal Baru
               </h3>
               <p className="text-xs text-[#64748B] leading-relaxed">
-                Publikasikan naskah riset dalam format PDF atau DOCX dengan metadata lengkap dan ekstraksi teks otomatis.
+                Publikasikan naskah riset dalam format PDF atau DOCX.
               </p>
             </div>
 
@@ -100,7 +167,7 @@ export default function UploadHubPage() {
                 Jelajahi Repositori
               </h3>
               <p className="text-xs text-[#64748B] leading-relaxed">
-                Temukan publikasi ilmiah lintas disiplin ilmu dengan fitur smart search, filter rentang tahun, dan metrik sitasi.
+                Temukan publikasi ilmiah dengan fitur smart search, filter rentang tahun, dan metrik sitasi.
               </p>
             </div>
 

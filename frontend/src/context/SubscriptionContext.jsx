@@ -10,7 +10,7 @@ export function SubscriptionProvider({ children }) {
     plan: 'Free Access',
     rawPlan: 'free',
     status: 'active',
-    dailyQuota: 5,
+    dailyQuota: 10,
     usedToday: 0,
     periodEnd: null,
     subscriptionId: null
@@ -34,14 +34,27 @@ export function SubscriptionProvider({ children }) {
     refreshSubscription();
   }, [refreshSubscription]);
 
-  const upgradePlan = async (planName = 'Ultra Academic Pro') => {
-    const updated = await subscriptionService.upgrade(planName);
-    setSubscription(updated);
-    return updated;
+  const upgradePlan = async (planName = 'pro') => {
+    const result = await subscriptionService.upgrade(planName);
+    if (!result?.checkoutUrl) {
+      setSubscription(result);
+    }
+    return result;
   };
 
+  const confirmCheckout = useCallback(async (sessionId) => {
+    const updated = await subscriptionService.confirmCheckout(sessionId);
+    setSubscription(updated);
+    return updated;
+  }, []);
+
   const cancelPlan = async () => {
-    if (!subscription.subscriptionId) return;
+    if (!subscription.subscriptionId) {
+      const updated = await subscriptionService.createCheckoutSession('free');
+      const normalized = await subscriptionService.getCurrentSubscription();
+      setSubscription(normalized);
+      return updated;
+    }
     const updated = await subscriptionService.cancel(subscription.subscriptionId);
     setSubscription(updated);
     return updated;
@@ -59,6 +72,7 @@ export function SubscriptionProvider({ children }) {
         remainingQuota,
         refreshSubscription,
         upgradePlan,
+        confirmCheckout,
         cancelPlan,
       }}
     >

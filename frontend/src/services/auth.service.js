@@ -27,6 +27,9 @@ export const authService = {
         name: name || username 
       })
     });
+    if (!data?.token) {
+      return this.login(username, password);
+    }
     return setStoredAuth(data);
   },
 

@@ -125,9 +125,6 @@ export default function HistoryPage() {
             <h3 className="text-base font-bold text-[#0F172A]">
               {activeTab === 'saved' ? 'Belum Ada Jurnal Tersimpan' : 'Riwayat Baca Masih Kosong'}
             </h3>
-            <p className="max-w-md mx-auto leading-relaxed">
-              Jelajahi repositori publikasi dan temukan karya ilmiah yang relevan dengan topik riset Anda.
-            </p>
             <button
               onClick={() => navigate('/search')}
               className="dokmeh-btn-primary !py-2 !px-4 text-xs font-semibold"

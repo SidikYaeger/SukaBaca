@@ -62,9 +62,6 @@ export default function RegisterPage() {
             <h1 className="text-2xl font-extrabold text-[#0F172A] tracking-tight">
               Daftar Akun Baru
             </h1>
-            <p className="text-xs text-[#64748B]">
-              Bergabung dengan komunitas riset SukaBaca dan kelola publikasi ilmiah.
-            </p>
           </div>
 
           {errorMessage && (

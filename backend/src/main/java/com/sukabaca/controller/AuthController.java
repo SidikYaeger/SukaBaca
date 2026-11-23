@@ -52,17 +52,7 @@ public class AuthController {
 
         Optional<User> userOpt = userRepository.findByUsername(username);
         if (userOpt.isPresent() && PasswordHasher.matches(password, userOpt.get().getPassword())) {
-            User user = userOpt.get();
-            String token = TokenService.createToken(user);
-            Map<String, Object> responseData = new LinkedHashMap<>();
-            responseData.put("status", "success");
-            responseData.put("userId", user.getId() != null ? user.getId() : 1L);
-            responseData.put("username", user.getUsername());
-            responseData.put("name", user.getName() != null ? user.getName() : user.getUsername());
-            responseData.put("role", user.getRole() != null ? user.getRole() : "user");
-            responseData.put("token", token);
-            responseData.put("message", "Login successful");
-            return ResponseEntity.ok(responseData);
+            return ResponseEntity.ok(buildAuthResponse(userOpt.get(), "Login successful"));
         }
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -131,8 +121,7 @@ public class AuthController {
         }
 
         String hashed = PasswordHasher.hash(password);
-        User newUser = new User(username, hashed, name, "user");
-        userRepository.save(newUser);
+        User newUser = userRepository.save(new User(username, hashed, name, "user"));
 
         if (subscriptionRepository != null && newUser.getId() != null) {
             subscriptionRepository.save(
@@ -140,9 +129,19 @@ public class AuthController {
             );
         }
 
-        return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "User registered successfully"
-        ));
+        return ResponseEntity.ok(buildAuthResponse(newUser, "User registered successfully"));
+    }
+
+    private Map<String, Object> buildAuthResponse(User user, String message) {
+        String token = TokenService.createToken(user);
+        Map<String, Object> responseData = new LinkedHashMap<>();
+        responseData.put("status", "success");
+        responseData.put("userId", user.getId() != null ? user.getId() : 1L);
+        responseData.put("username", user.getUsername());
+        responseData.put("name", user.getName() != null ? user.getName() : user.getUsername());
+        responseData.put("role", user.getRole() != null ? user.getRole() : "user");
+        responseData.put("token", token);
+        responseData.put("message", message);
+        return responseData;
     }
 }

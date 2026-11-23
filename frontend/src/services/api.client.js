@@ -37,13 +37,17 @@ export const getStoredAuth = () => {
 };
 
 export const setStoredAuth = (user) => {
-  const usernameStr = typeof user === 'object' && user !== null 
-    ? (user.username || user.name || 'User') 
-    : (user || '');
-  const data = { 
-    isAuthenticated: Boolean(usernameStr), 
-    user: usernameStr, 
-    profile: typeof user === 'object' ? user : null 
+  const profile = typeof user === 'object' && user !== null ? user : null;
+  const usernameStr = profile ? (profile.username || profile.name || '') : (user || '');
+  const hasToken = Boolean(profile?.token);
+  if (!usernameStr || !hasToken) {
+    clearStoredAuth();
+    return { isAuthenticated: false, user: null, profile: null };
+  }
+  const data = {
+    isAuthenticated: true,
+    user: usernameStr,
+    profile,
   };
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data));
   return data;

@@ -34,6 +34,12 @@ public class Subscription {
     @Column(name = "last_reset_date")
     private LocalDate lastResetDate = LocalDate.now();
 
+    @Column(name = "stripe_customer_id", length = 100)
+    private String stripeCustomerId;
+
+    @Column(name = "stripe_subscription_id", length = 100)
+    private String stripeSubscriptionId;
+
     public Subscription() {}
 
     public Subscription(User user, String status, String plan, LocalDateTime currentPeriodEnd, Integer usage) {
@@ -141,5 +147,21 @@ public class Subscription {
 
     public void setUsage(Integer usage) {
         this.usage = usage;
+    }
+
+    public String getStripeCustomerId() {
+        return stripeCustomerId;
+    }
+
+    public void setStripeCustomerId(String stripeCustomerId) {
+        this.stripeCustomerId = stripeCustomerId;
+    }
+
+    public String getStripeSubscriptionId() {
+        return stripeSubscriptionId;
+    }
+
+    public void setStripeSubscriptionId(String stripeSubscriptionId) {
+        this.stripeSubscriptionId = stripeSubscriptionId;
     }
 }

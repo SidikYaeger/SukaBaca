@@ -6,7 +6,7 @@ import { useSubscription } from '../../context/SubscriptionContext';
 
 export default function Header({ onMenuClick }) {
   const { isAuthenticated, user, logout } = useAuth();
-  const { subscription, remainingQuota } = useSubscription();
+  const { subscription, remainingQuota, isPro } = useSubscription();
   const navigate = useNavigate();
 
   return (
@@ -62,7 +62,7 @@ export default function Header({ onMenuClick }) {
                 <Crown size={13} className="text-[#D83995]" />
                 <span className="uppercase text-[11px] tracking-wider">{subscription.plan}</span>
                 <span className="font-mono text-[10px] font-bold bg-[#0593C6]/10 text-[#0593C6] px-1.5 py-0.2 border border-[#0593C6]/30 tabular-nums">
-                  {remainingQuota} Quota
+                  {isPro ? 'Unlimited' : `${remainingQuota} Quota`}
                 </span>
               </Link>
 
