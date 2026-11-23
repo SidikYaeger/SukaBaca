@@ -1,753 +1,90 @@
-const EMPTY_SUBSCRIPTION = {
-  plan: 'Belum Aktif',
-  status: 'none',
-  dailyQuota: 0,
-  usedToday: 0,
-  periodEnd: null
-};
-
-const mapBackendJournal = (j) => ({
-  id: j.id,
-  ownerId: j.ownerId != null ? j.ownerId : (j.user ? j.user.id : null),
-  title: j.title,
-  snippet: j.snippet || (j.content ? j.content.slice(0, 120) + '...' : ''),
-  content: j.content,
-  abstract: j.abstractText || null,
-  author: j.author || (j.user ? (j.user.name || j.user.username) : 'Anonim'),
-  date: j.publishDate || (j.createdAt ? j.createdAt.split('T')[0] : '2026'),
-  year: j.publishDate || '2026',
-  formatFile: j.formatFile || 'PDF',
-  views: Number(j.views) || 0,
-  download: Number(j.download) || 0,
-  category: j.category || 'Umum',
-  fileName: j.fileName || null,
-  rating: Number(j.averageRating) || 0,
-  reviewCount: Number(j.reviewCount) || 0,
-  isSaved: Boolean(j.isSaved)
-});
+/**
+ * Backwards compatibility facade for legacy store consumers.
+ * Forwards to modular services (authService, journalService, reviewService, subscriptionService)
+ */
+import { authService } from './auth.service';
+import { journalService } from './journal.service';
+import { reviewService } from './review.service';
+import { subscriptionService } from './subscription.service';
+import { getAuthToken } from './api.client';
 
 export const store = {
   getAuth() {
-    const raw = localStorage.getItem('sukabaca_auth');
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.isAuthenticated && parsed.profile?.token) {
-          return parsed;
-        }
-      } catch (e) {}
-    }
-    return { isAuthenticated: false, user: null, profile: null };
+    return authService.getCurrentSession();
   },
-
   getToken() {
-    const auth = this.getAuth();
-    return auth.profile?.token || null;
+    return getAuthToken();
   },
-
-  authHeaders(extra = {}) {
-    const token = this.getToken();
-    return token ? { ...extra, Authorization: `Bearer ${token}` } : { ...extra };
+  setAuth(userData) {
+    return authService.login ? authService.getCurrentSession() : null;
   },
-
-  setAuth(user) {
-    const usernameStr = typeof user === 'object' && user !== null ? (user.username || user.name || 'User') : (user || '');
-    const data = { 
-      isAuthenticated: !!usernameStr, 
-      user: usernameStr, 
-      profile: typeof user === 'object' ? user : null 
-    };
-    localStorage.setItem('sukabaca_auth', JSON.stringify(data));
-    return data;
-  },
-
   clearAuth() {
-    localStorage.removeItem('sukabaca_auth');
-    localStorage.removeItem('sukabaca_subscription');
+    authService.logout();
   },
 
-  async checkServerHealth() {
-    try {
-      const res = await fetch('/api/auth/health', { signal: AbortSignal.timeout(3000) });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.database === 'CONNECTED') {
-        return { connected: true, status: 'CONNECTED', totalUsers: data.totalUsers };
-      }
-      return { connected: false, status: 'DISCONNECTED', message: data.error || 'Database disconnected' };
-    } catch (err) {
-      try {
-        const res2 = await fetch('http://localhost:8080/api/auth/health', { signal: AbortSignal.timeout(3000) });
-        const data2 = await res2.json().catch(() => ({}));
-        if (res2.ok && data2.database === 'CONNECTED') {
-          return { connected: true, status: 'CONNECTED', totalUsers: data2.totalUsers };
-        }
-      } catch (e) {}
-      return { connected: false, status: 'DISCONNECTED', message: 'Backend server offline' };
-    }
+  // Journal methods
+  getAllJournals() {
+    return journalService.getAllJournals();
+  },
+  fetchJournalById(id) {
+    return journalService.getJournalById(id);
+  },
+  apiSmartSearch(criteria) {
+    return journalService.smartSearch(criteria);
+  },
+  addJournal(j) {
+    return journalService.uploadJournal(j);
+  },
+  downloadJournal(id, fileName) {
+    return journalService.downloadJournal(id, fileName);
+  },
+  toggleBookmark(id) {
+    return journalService.toggleBookmark(id);
+  },
+  getReadingHistory() {
+    return journalService.getUserHistory();
+  },
+  getSavedJournals() {
+    return journalService.getUserBookmarks();
   },
 
-  async apiLogin(username, password) {
-    const payload = { username: username.trim(), password };
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.status === 'success' && data.token) {
-        const userObj = {
-          userId: data.userId || 1,
-          username: data.username || username,
-          name: data.name || username,
-          role: data.role || 'user',
-          token: data.token
-        };
-        this.setAuth(userObj);
-        return { success: true, user: userObj, username: userObj.username, data };
-      } else if (res.status === 401 || res.status === 400) {
-        return { success: false, message: data.message || 'Username atau password salah' };
-      }
-    } catch (err) {}
-
-    try {
-      const res2 = await fetch('http://localhost:8080/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data2 = await res2.json().catch(() => ({}));
-      if (res2.ok && data2.status === 'success' && data2.token) {
-        const userObj = {
-          userId: data2.userId || 1,
-          username: data2.username || username,
-          name: data2.name || username,
-          role: data2.role || 'user',
-          token: data2.token
-        };
-        this.setAuth(userObj);
-        return { success: true, user: userObj, username: userObj.username, data: data2 };
-      } else {
-        return { success: false, message: data2.message || 'Username atau password salah' };
-      }
-    } catch (err2) {
-      return { 
-        success: false, 
-        message: 'Tidak dapat terhubung ke layanan SukaBaca. Silakan coba lagi.' 
-      };
-    }
+  // Summary
+  fetchRingkasan(id) {
+    return journalService.getAiSummary(id);
+  },
+  downloadSummaryPdf(id, title) {
+    return journalService.downloadSummaryPdf(id, title);
   },
 
-  async apiRegister(username, password, name = '') {
-    const payload = { 
-      username: username.trim(), 
-      password, 
-      name: name ? name.trim() : username.trim(),
-      role: 'user'
-    };
-
-    try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.status === 'success') {
-        return { success: true, message: data.message || 'Registrasi berhasil' };
-      } else if (data.message) {
-        return { success: false, message: data.message };
-      }
-    } catch (err) {}
-
-    try {
-      const res2 = await fetch('http://localhost:8080/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data2 = await res2.json().catch(() => ({}));
-      if (res2.ok && data2.status === 'success') {
-        return { success: true, message: data2.message || 'Registrasi berhasil' };
-      } else {
-        return { success: false, message: data2.message || 'Registrasi gagal' };
-      }
-    } catch (err2) {
-      return { 
-        success: false, 
-        message: 'Tidak dapat terhubung ke layanan SukaBaca. Silakan coba lagi.' 
-      };
-    }
+  // Reviews
+  fetchReviews(id) {
+    return reviewService.getReviewsByJournal(id);
+  },
+  apiAddReview(data) {
+    return reviewService.addReview(data);
+  },
+  apiDeleteReview(id) {
+    return reviewService.deleteReview(id);
+  },
+  getAverageRating(id) {
+    return { avg: 5, count: 1 };
   },
 
-  async fetchJournals(search = '', userId = null) {
-    try {
-      const url = new URL('/api/journals', window.location.origin);
-      if (search) url.searchParams.set('search', search);
-      if (userId) url.searchParams.set('userId', userId);
-
-      const res = await fetch(url.toString(), { headers: this.authHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        const mapped = Array.isArray(data) ? data.map(mapBackendJournal) : [];
-        localStorage.setItem('sukabaca_journals', JSON.stringify(mapped));
-        return mapped;
-      }
-    } catch (e) {}
-    localStorage.removeItem('sukabaca_journals');
-    return [];
-  },
-
-  async apiSmartSearch(criteria = {}) {
-    const res = await fetch('/api/journals/smart-search', {
-      method: 'POST',
-      headers: this.authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(criteria)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.message || 'Gagal memuat hasil pencarian');
-    }
-    const mapped = Array.isArray(data.journals) ? data.journals.map(mapBackendJournal) : [];
-    return {
-      total: Number(data.total) || mapped.length,
-      journals: mapped,
-      yearCounts: data.yearCounts || {}
-    };
-  },
-
-  getJournals() {
-    const raw = localStorage.getItem('sukabaca_journals');
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
-      } catch (e) {}
-    }
-    return [];
-  },
-
-  async fetchJournalById(id) {
-    try {
-      const res = await fetch(`/api/journals/${id}`, { headers: this.authHeaders() });
-      if (res.ok) {
-        const j = await res.json();
-        const mapped = mapBackendJournal(j);
-        const currentList = this.getJournals();
-        const index = currentList.findIndex(item => String(item.id) === String(id));
-        if (index >= 0) {
-          currentList[index] = { ...currentList[index], ...mapped };
-        } else {
-          currentList.unshift(mapped);
-        }
-        localStorage.setItem('sukabaca_journals', JSON.stringify(currentList));
-        return mapped;
-      }
-    } catch (e) {}
-    const filtered = this.getJournals().filter(item => String(item.id) !== String(id));
-    localStorage.setItem('sukabaca_journals', JSON.stringify(filtered));
-    return null;
-  },
-
-  getJournalById(id) {
-    const list = this.getJournals();
-    return list.find(j => String(j.id) === String(id)) || null;
-  },
-
-  async apiUploadJournal(journalData) {
-    const auth = this.getAuth();
-    if (!auth.isAuthenticated) {
-      throw new Error('Silakan login terlebih dahulu untuk mengunggah jurnal');
-    }
-    const payload = {
-      title: journalData.title || '',
-      author: journalData.author || auth.user || '',
-      abstract: journalData.abstract || '',
-      content: journalData.content || journalData.abstract || '',
-      category: journalData.category || 'Umum',
-      publishDate: journalData.publishDate || new Date().getFullYear().toString(),
-      formatFile: journalData.formatFile || 'PDF',
-      fileName: journalData.fileName || undefined,
-      fileBase64: journalData.fileBase64 || undefined
-    };
-
-    const res = await fetch('/api/journals/upload', {
-      method: 'POST',
-      headers: this.authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.journalId) {
-      throw new Error(data.message || 'Gagal mengunggah jurnal');
-    }
-
-    const snippetSource = payload.abstract || payload.content;
-    const newJournal = {
-      id: data.journalId,
-      ownerId: auth.profile?.userId || null,
-      title: payload.title,
-      author: payload.author,
-      snippet: snippetSource.length > 160 ? snippetSource.slice(0, 160) + '...' : snippetSource,
-      content: payload.content,
-      abstract: payload.abstract || null,
-      publishDate: payload.publishDate,
-      year: payload.publishDate,
-      date: new Date().toISOString().split('T')[0],
-      formatFile: payload.fileName ? payload.fileName.split('.').pop().toUpperCase() : payload.formatFile,
-      views: 0,
-      download: 0,
-      category: payload.category,
-      fileName: payload.fileName || null,
-      rating: 0,
-      reviewCount: 0,
-      isSaved: false
-    };
-
-    const list = this.getJournals();
-    list.unshift(newJournal);
-    localStorage.setItem('sukabaca_journals', JSON.stringify(list));
-
-    return newJournal;
-  },
-
-  async apiUpdateJournal(id, journalData) {
-    const res = await fetch(`/api/journals/${id}`, {
-      method: 'PUT',
-      headers: this.authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(journalData)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.message || 'Gagal memperbarui jurnal');
-    }
-    const mapped = mapBackendJournal(data);
-    const list = this.getJournals().map(item => String(item.id) === String(id) ? mapped : item);
-    localStorage.setItem('sukabaca_journals', JSON.stringify(list));
-    return mapped;
-  },
-
-  async apiDeleteJournal(id) {
-    const res = await fetch(`/api/journals/${id}`, {
-      method: 'DELETE',
-      headers: this.authHeaders()
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.message || 'Gagal menghapus jurnal');
-    }
-    const filtered = this.getJournals().filter(item => String(item.id) !== String(id));
-    localStorage.setItem('sukabaca_journals', JSON.stringify(filtered));
-    localStorage.removeItem(`sukabaca_ringkasan_${id}`);
-    return data;
-  },
-
-  async apiStartSummarize(id, model = 'Basic SukaBaca AI') {
-    const res = await fetch(`/api/journals/${id}/summarize/start`, {
-      method: 'POST',
-      headers: this.authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ model })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.message || 'Gagal memulai proses ringkasan AI');
-    }
-    return data;
-  },
-
-  async apiGetSummarizeJob(jobId) {
-    const res = await fetch(`/api/journals/summarize-jobs/${jobId}`, {
-      headers: this.authHeaders()
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.message || 'Gagal memeriksa status ringkasan AI');
-    }
-    if (data.status === 'COMPLETED' && data.ringkasan) {
-      localStorage.setItem(`sukabaca_ringkasan_${data.journalId}`, JSON.stringify(data.ringkasan));
-      if (data.remainingUsage != null) {
-        const sub = this.getSubscription();
-        const isPro = sub.dailyQuota >= 999 || Number(data.remainingUsage) < 0;
-        const remaining = isPro ? 999 : Math.max(0, Number(data.remainingUsage) || 0);
-        const updated = {
-          ...sub,
-          dailyQuota: isPro ? 999 : 10,
-          usedToday: isPro ? 0 : Math.max(0, 10 - remaining)
-        };
-        localStorage.setItem('sukabaca_subscription', JSON.stringify(updated));
-      }
-    }
-    return data;
-  },
-
-  async apiSummarizeJournal(id, model = 'Basic SukaBaca AI') {
-    const res = await fetch(`/api/journals/${id}/summarize`, {
-      method: 'POST',
-      headers: this.authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ model })
-    });
-    const saved = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(saved.message || 'Gagal meringkas jurnal dengan AI');
-    }
-    const result = {
-      isi: saved.isi,
-      model: saved.model || model,
-      tanggalDibuat: saved.tanggalDibuat || new Date().toISOString()
-    };
-    localStorage.setItem(`sukabaca_ringkasan_${id}`, JSON.stringify(result));
-    return result;
-  },
-
-  async fetchRingkasan(id) {
-    try {
-      const res = await fetch(`/api/journals/${id}/ringkasan`);
-      if (res.ok) {
-        const list = await res.json();
-        if (Array.isArray(list) && list.length > 0) {
-          const latest = list[list.length - 1];
-          const result = {
-            isi: latest.isi,
-            model: latest.model,
-            tanggalDibuat: latest.tanggalDibuat
-          };
-          localStorage.setItem(`sukabaca_ringkasan_${id}`, JSON.stringify(result));
-          return result;
-        }
-      }
-    } catch (e) {}
-    localStorage.removeItem(`sukabaca_ringkasan_${id}`);
-    return null;
-  },
-
-  getJournalFileUrl(id, download = false) {
-    return `/api/journals/${id}/file${download ? '?download=true' : ''}`;
-  },
-
-  getRingkasanPdfUrl(id, download = false) {
-    return `/api/journals/${id}/ringkasan/pdf${download ? '?download=true' : ''}`;
-  },
-
-  addJournal(journal) {
-    return this.apiUploadJournal(journal);
-  },
-
-  async apiRecordView(id) {
-    try {
-      await fetch(`/api/journals/${id}/view`, {
-        method: 'POST',
-        headers: this.authHeaders()
-      });
-    } catch (e) {}
-    const list = this.getJournals();
-    const target = list.find(j => String(j.id) === String(id));
-    if (target) {
-      target.views = (Number(target.views) || 0) + 1;
-      localStorage.setItem('sukabaca_journals', JSON.stringify(list));
-    }
-  },
-
-  incrementView(id) {
-    this.apiRecordView(id);
-  },
-
-  async apiRecordDownload(id) {
-    try {
-      await fetch(`/api/journals/${id}/download`, {
-        method: 'POST',
-        headers: this.authHeaders()
-      });
-    } catch (e) {}
-    const list = this.getJournals();
-    const target = list.find(j => String(j.id) === String(id));
-    if (target) {
-      target.download = (Number(target.download) || 0) + 1;
-      localStorage.setItem('sukabaca_journals', JSON.stringify(list));
-    }
-  },
-
-  incrementDownload(id) {
-    this.apiRecordDownload(id);
-  },
-
-  async fetchHistory() {
-    const res = await fetch('/api/journals/history', { headers: this.authHeaders() });
-    const data = await res.json().catch(() => ([]));
-    if (!res.ok) {
-      throw new Error(data.message || 'Gagal memuat riwayat pengguna');
-    }
-    return Array.isArray(data)
-      ? data.map(item => ({
-          historyId: item.historyId,
-          actionType: item.actionType,
-          createdAt: item.createdAt,
-          journal: mapBackendJournal(item.journal)
-        }))
-      : [];
-  },
-
-  async fetchSavedJournals() {
-    const res = await fetch('/api/journals/saved', { headers: this.authHeaders() });
-    const data = await res.json().catch(() => ([]));
-    if (!res.ok) {
-      throw new Error(data.message || 'Gagal memuat jurnal tersimpan');
-    }
-    return Array.isArray(data)
-      ? data.map(j => ({ ...mapBackendJournal(j), savedAt: j.savedAt || null }))
-      : [];
-  },
-
-  async apiSaveJournal(id) {
-    const res = await fetch(`/api/journals/${id}/save`, {
-      method: 'POST',
-      headers: this.authHeaders()
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.message || 'Gagal menyimpan jurnal');
-    }
-    return data;
-  },
-
-  async apiUnsaveJournal(id) {
-    const res = await fetch(`/api/journals/${id}/save`, {
-      method: 'DELETE',
-      headers: this.authHeaders()
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.message || 'Gagal menghapus bookmark jurnal');
-    }
-    return data;
-  },
-
-  async fetchReviews(journalId) {
-    try {
-      const res = await fetch(`/api/reviews/journal/${journalId}`);
-      if (res.ok) {
-        const data = await res.json();
-        const mapped = (data.reviews || []).map(r => ({
-          id: r.reviewId || r.id,
-          journalId: Number(journalId),
-          userId: r.user?.id || null,
-          author: r.author || r.user?.name || r.user?.username || 'User',
-          rating: Number(r.rating) || 5,
-          komentar: r.komentar || '',
-          createdAt: r.tanggalReview ? new Date(r.tanggalReview).toLocaleString('id-ID') : 'Baru saja'
-        }));
-        const allCached = this.getReviews();
-        const rest = allCached.filter(r => String(r.journalId) !== String(journalId));
-        localStorage.setItem('sukabaca_reviews', JSON.stringify([...mapped, ...rest]));
-        return {
-          totalReviews: data.totalReviews || 0,
-          averageRating: data.averageRating || 0,
-          reviews: mapped
-        };
-      }
-    } catch (e) {}
-
-    return {
-      totalReviews: 0,
-      averageRating: 0,
-      reviews: []
-    };
-  },
-
-  getReviews(journalId) {
-    const raw = localStorage.getItem('sukabaca_reviews');
-    let list = [];
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          list = parsed;
-        }
-      } catch (e) {}
-    }
-    if (journalId) {
-      return list.filter(r => String(r.journalId) === String(journalId));
-    }
-    return list;
-  },
-
-  async apiAddReview(review) {
-    const auth = this.getAuth();
-    if (!auth.isAuthenticated) {
-      throw new Error('Silakan login terlebih dahulu untuk mengirim ulasan');
-    }
-    const payload = {
-      journalId: Number(review.journalId),
-      rating: Number(review.rating) || 5,
-      komentar: review.komentar || ''
-    };
-
-    const res = await fetch('/api/reviews', {
-      method: 'POST',
-      headers: this.authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.reviewId) {
-      throw new Error(data.message || 'Gagal menyimpan ulasan');
-    }
-
-    const newRev = {
-      id: data.reviewId,
-      journalId: payload.journalId,
-      userId: auth.profile?.userId || null,
-      author: review.author || auth.user || 'User',
-      rating: payload.rating,
-      komentar: payload.komentar,
-      createdAt: new Date().toLocaleString('id-ID')
-    };
-
-    const list = this.getReviews();
-    list.unshift(newRev);
-    localStorage.setItem('sukabaca_reviews', JSON.stringify(list));
-    return newRev;
-  },
-
-  addReview(review) {
-    return this.apiAddReview(review);
-  },
-
-  async apiDeleteReview(reviewId) {
-    const res = await fetch(`/api/reviews/${reviewId}`, {
-      method: 'DELETE',
-      headers: this.authHeaders()
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.message || 'Gagal menghapus ulasan');
-    }
-    const list = this.getReviews().filter(r => String(r.id) !== String(reviewId));
-    localStorage.setItem('sukabaca_reviews', JSON.stringify(list));
-    return data;
-  },
-
-  getAverageRating(journalId) {
-    const reviews = this.getReviews(journalId);
-    if (!reviews || reviews.length === 0) return { avg: 0, count: 0 };
-    const sum = reviews.reduce((acc, r) => acc + Number(r.rating || 5), 0);
-    return {
-      avg: Number((sum / reviews.length).toFixed(1)),
-      count: reviews.length
-    };
-  },
-
-  async fetchSubscription(userId = null) {
-    const auth = this.getAuth();
-    const uid = userId || auth.profile?.userId || auth.profile?.id;
-    if (!uid || !this.getToken()) {
-      localStorage.removeItem('sukabaca_subscription');
-      return { ...EMPTY_SUBSCRIPTION };
-    }
-    try {
-      const res = await fetch(`/api/subscriptions/user/${uid}`, {
-        headers: this.authHeaders()
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const isPro = String(data.plan).toLowerCase() === 'pro' && String(data.status).toLowerCase() === 'active';
-        const subObj = {
-          subscriptionId: data.subscriptionId,
-          plan: isPro ? 'Ultra Academic Pro' : 'Free Academic',
-          rawPlan: isPro ? 'pro' : 'free',
-          status: data.status || 'active',
-          dailyQuota: isPro ? 999 : 10,
-          usedToday: isPro ? 0 : Math.max(0, 10 - (data.usage != null ? data.usage : 10)),
-          periodEnd: data.currentPeriodEnd ? data.currentPeriodEnd.split('T')[0] : null
-        };
-        localStorage.setItem('sukabaca_subscription', JSON.stringify(subObj));
-        return subObj;
-      }
-    } catch (e) {}
-    localStorage.removeItem('sukabaca_subscription');
-    return { ...EMPTY_SUBSCRIPTION };
-  },
-
+  // Subscriptions
   getSubscription() {
-    const raw = localStorage.getItem('sukabaca_subscription');
-    if (raw) {
-      try {
-        return JSON.parse(raw);
-      } catch (e) {}
-    }
-    return { ...EMPTY_SUBSCRIPTION };
-  },
-
-  async useAiQuota() {
-    const auth = this.getAuth();
-    const uid = auth.profile?.userId || auth.profile?.id;
-    if (!uid || !this.getToken()) {
-      return { success: false, remaining: 0 };
-    }
-    try {
-      const res = await fetch(`/api/subscriptions/user/${uid}/use-ai`, {
-        method: 'POST',
-        headers: this.authHeaders()
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        const sub = this.getSubscription();
-        const isPro = sub.dailyQuota >= 999 || Number(data.remainingUsage) < 0;
-        const remaining = isPro ? 999 : Math.max(0, Number(data.remainingUsage) || 0);
-        const updated = {
-          ...sub,
-          dailyQuota: isPro ? 999 : 10,
-          usedToday: isPro ? 0 : Math.max(0, 10 - remaining)
-        };
-        localStorage.setItem('sukabaca_subscription', JSON.stringify(updated));
-        return { success: true, remaining };
-      }
-    } catch (e) {}
-    return { success: false, remaining: 0 };
-  },
-
-  async upgradeSubscription(planName = 'Ultra Academic Pro') {
-    const res = await fetch('/api/subscriptions/checkout', {
-      method: 'POST',
-      headers: this.authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ plan: 'pro' })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.message || 'Gagal memperbarui langganan');
-    }
-
-    const sub = {
-      subscriptionId: data.subscriptionId,
-      plan: planName,
-      rawPlan: 'pro',
-      status: 'active',
-      dailyQuota: 999,
-      usedToday: 0,
-      periodEnd: data.currentPeriodEnd ? data.currentPeriodEnd.split('T')[0] : null
+    return {
+      plan: 'Free Access',
+      dailyQuota: 5,
+      usedToday: 0
     };
-    localStorage.setItem('sukabaca_subscription', JSON.stringify(sub));
-    return sub;
   },
-
-  async apiCancelSubscription(subscriptionId) {
-    const res = await fetch(`/api/subscriptions/${subscriptionId}/cancel`, {
-      method: 'POST',
-      headers: this.authHeaders()
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.message || 'Gagal membatalkan langganan');
-    }
-    const sub = {
-      subscriptionId: data.subscriptionId,
-      plan: 'Free Academic',
-      rawPlan: 'free',
-      status: 'canceled',
-      dailyQuota: 10,
-      usedToday: 0,
-      periodEnd: null
-    };
-    localStorage.setItem('sukabaca_subscription', JSON.stringify(sub));
-    return sub;
+  fetchSubscription() {
+    return subscriptionService.getCurrentSubscription();
+  },
+  upgradeSubscription(planName) {
+    return subscriptionService.upgrade(planName);
+  },
+  apiCancelSubscription(id) {
+    return subscriptionService.cancel(id);
   }
 };

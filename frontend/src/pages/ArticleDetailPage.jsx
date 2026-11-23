@@ -1,487 +1,304 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Star, Download, Eye, Calendar, User, Send, CheckCircle2, MessageSquare, Sparkles, FileText, Trash2, ExternalLink } from 'lucide-react';
-import Navbar from '../components/Navbar';
-import { store } from '../services/store';
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  Star,
+  Download,
+  Eye,
+  ArrowLeft,
+  Sparkles,
+  FileText,
+  Bookmark,
+  FileDown
+} from 'lucide-react';
+import Header from '../components/layout/Header';
+import ReviewSection from '../components/journal/ReviewSection';
+import { Badge, Skeleton } from '../components/common/UIPrimitives';
+import { journalService } from '../services/journal.service';
+import { reviewService } from '../services/review.service';
+import { useAuth } from '../context/AuthContext';
 
 export default function ArticleDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
-  const journalId = id || 1;
-  const auth = store.getAuth();
+  const { isAuthenticated, user } = useAuth();
 
   const [journal, setJournal] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [ringkasan, setRingkasan] = useState(null);
-  const [reviews, setReviews] = useState([]);
-  const [ratingStats, setRatingStats] = useState({ avg: 0, count: 0 });
-
-  const [userRating, setUserRating] = useState(5);
-  const [hoverRating, setHoverRating] = useState(0);
-  const [comment, setComment] = useState('');
-  const [reviewerName, setReviewerName] = useState('');
-  const [reviewSubmitted, setReviewSubmitted] = useState(false);
-  const [reviewError, setReviewError] = useState('');
-  const [downloadSuccess, setDownloadSuccess] = useState(false);
+  const [summary, setSummary] = useState(null);
+  const [reviewsData, setReviewsData] = useState({ reviews: [], averageRating: 0, totalReviews: 0 });
+  const [downloading, setDownloading] = useState(false);
+  const [downloadingSummary, setDownloadingSummary] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
-    const loadData = async () => {
-      const data = await store.fetchJournalById(journalId);
-      if (!isMounted) return;
-      if (!data) {
-        setJournal(null);
-        setLoading(false);
-        return;
-      }
-      setJournal(data);
-      setLoading(false);
-      const [summary, revsData] = await Promise.all([
-        store.fetchRingkasan(journalId),
-        store.fetchReviews(journalId)
-      ]);
-      if (!isMounted) return;
-      setRingkasan(summary);
-      if (revsData) {
-        setReviews(revsData.reviews);
-        setRatingStats({ avg: revsData.averageRating, count: revsData.totalReviews });
-      }
-      const auth = store.getAuth();
-      if (auth.user) {
-        setReviewerName(auth.user);
+
+    const loadArticle = async () => {
+      try {
+        const item = await journalService.getJournalById(id);
+        if (!isMounted) return;
+        setJournal(item);
+
+        if (item) {
+          const [aiSum, revs] = await Promise.all([
+            journalService.getAiSummary(id),
+            reviewService.getReviewsByJournal(id)
+          ]);
+          if (!isMounted) return;
+          setSummary(aiSum);
+          setReviewsData(revs);
+        }
+      } catch {
+        if (isMounted) setJournal(null);
+      } finally {
+        if (isMounted) setLoading(false);
       }
     };
-    loadData();
+
+    loadArticle();
     return () => { isMounted = false; };
-  }, [journalId]);
+  }, [id]);
 
-  const handleAddReview = async (e) => {
-    e.preventDefault();
-    setReviewError('');
-    if (!auth.isAuthenticated || !store.getToken()) {
-      navigate('/login', { state: { from: location.pathname } });
+  const handleToggleBookmark = async () => {
+    if (!isAuthenticated) {
+      navigate('/login');
       return;
     }
-    const trimmed = comment.trim();
-    if (trimmed.length < 3 || trimmed.length > 2000) {
-      setReviewError('Komentar harus terdiri dari 3–2000 karakter');
-      return;
-    }
-
-    const author = reviewerName.trim() || 'Pengguna';
     try {
-      const newRev = await store.apiAddReview({
-        journalId: Number(journalId),
-        author,
-        rating: userRating,
-        komentar: trimmed
-      });
-
-      const updatedReviews = [newRev, ...reviews];
-      setReviews(updatedReviews);
-      const updatedStats = store.getAverageRating(journalId);
-      setRatingStats(updatedStats);
-      setComment('');
-      setReviewSubmitted(true);
-      setTimeout(() => setReviewSubmitted(false), 3000);
-    } catch (err) {
-      setReviewError(err.message || 'Gagal mengirim ulasan');
+      await journalService.toggleBookmark(id);
+      setJournal((prev) => (prev ? { ...prev, isSaved: !prev.isSaved } : prev));
+    } catch {
+      // Ignore
     }
+  };
+
+  const handleDownloadOriginal = async () => {
+    if (!journal?.fileName) return;
+    setDownloading(true);
+    try {
+      await journalService.downloadJournal(journal.id, journal.fileName);
+    } catch {
+      // Ignore
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownloadSummaryPdf = async () => {
+    setDownloadingSummary(true);
+    try {
+      await journalService.downloadSummaryPdf(journal.id, journal.title);
+    } catch {
+      // Ignore
+    } finally {
+      setDownloadingSummary(false);
+    }
+  };
+
+  const handleAddReview = async ({ rating, komentar, author }) => {
+    await reviewService.addReview({
+      journalId: Number(id),
+      rating,
+      komentar,
+      author: author || user || 'Pengguna'
+    });
+    const updated = await reviewService.getReviewsByJournal(id);
+    setReviewsData(updated);
   };
 
   const handleDeleteReview = async (reviewId) => {
-    setReviewError('');
-    try {
-      await store.apiDeleteReview(reviewId);
-      const updated = reviews.filter(r => String(r.id) !== String(reviewId));
-      setReviews(updated);
-      if (updated.length === 0) {
-        setRatingStats({ avg: 0, count: 0 });
-      } else {
-        const sum = updated.reduce((acc, r) => acc + Number(r.rating || 0), 0);
-        setRatingStats({ avg: Number((sum / updated.length).toFixed(1)), count: updated.length });
-      }
-    } catch (err) {
-      setReviewError(err.message || 'Gagal menghapus ulasan');
-    }
-  };
-
-  const handleDownload = async () => {
-    if (!journal) return;
-    await store.apiRecordDownload(journalId);
-    setJournal(prev => prev ? { ...prev, download: (Number(prev.download) || 0) + 1 } : prev);
-
-    const element = document.createElement('a');
-    element.href = store.getRingkasanPdfUrl(journal.id, true);
-    element.download = `Ringkasan_${(journal.title || 'Jurnal').slice(0, 30).replace(/\s+/g, '_')}.pdf`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-
-    setDownloadSuccess(true);
-    setTimeout(() => setDownloadSuccess(false), 2500);
+    await reviewService.deleteReview(reviewId);
+    const updated = await reviewService.getReviewsByJournal(id);
+    setReviewsData(updated);
   };
 
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col bg-white min-h-screen pb-20">
-        <Navbar variant="with-back" />
-        <div className="max-w-2xl mx-auto px-5 sm:px-8 w-full mt-8 text-center">
-          <p className="text-sm font-semibold text-gray-500">Memuat ringkasan...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!journal) {
-    return (
-      <div className="page-enter flex-1 flex flex-col bg-[#ededed] min-h-screen pb-20">
-        <Navbar variant="with-back" />
-        <main className="max-w-2xl mx-auto px-5 sm:px-8 w-full mt-6">
-          <div className="bg-white rounded-[28px] border border-gray-100 shadow-sm p-8 sm:p-10 text-center">
-            <FileText size={44} className="mx-auto text-purple-400 mb-3" strokeWidth={1.6} />
-            <h1 className="text-lg sm:text-xl font-extrabold text-gray-900 mb-2">
-              Maaf, jurnal tidak ditemukan
-            </h1>
-            <p className="text-xs sm:text-sm text-gray-600 mb-6">
-              Data jurnal tidak tersedia atau telah dihapus.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate('/search')}
-              className="py-2.5 px-5 rounded-xl text-white font-bold text-xs sm:text-sm shadow hover:opacity-95 active:scale-95"
-              style={{
-                background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
-                border: '1px solid #333333'
-              }}
-            >
-              Cari Jurnal
-            </button>
+      <div className="min-h-screen flex flex-col bg-[#FFFFFF]">
+        <Header />
+        <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-8 py-8 w-full space-y-6">
+          <Skeleton className="w-24 h-8" />
+          <div className="p-8 border border-[#E2E8F0] space-y-4">
+            <Skeleton className="w-40 h-6" />
+            <Skeleton className="w-3/4 h-8" />
+            <Skeleton className="w-full h-32" />
           </div>
         </main>
       </div>
     );
   }
 
+  if (!journal) {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#FFFFFF]">
+        <Header />
+        <main className="flex-1 max-w-4xl mx-auto px-4 sm:px-8 py-16 text-center space-y-4">
+          <h2 className="text-xl font-bold text-[#0F172A]">Publikasi Tidak Ditemukan</h2>
+          <p className="text-xs text-[#64748B]">Artikel jurnal yang Anda tuju mungkin telah dihapus atau dipindahkan.</p>
+          <button onClick={() => navigate('/search')} className="dokmeh-btn-primary">
+            Kembali ke Pencarian
+          </button>
+        </main>
+      </div>
+    );
+  }
+
   return (
-    <div className="page-enter flex-1 flex flex-col bg-white min-h-screen pb-20">
-      {/* Top Navbar */}
-      <Navbar variant="with-back" />
+    <div className="min-h-screen flex flex-col bg-[#FFFFFF] text-[#334155] font-sans selection:bg-[#0593C6] selection:text-white">
+      <Header />
 
-      {/* Article Content Container */}
-      <article className="max-w-2xl mx-auto px-5 sm:px-8 w-full mt-3">
-        {/* Date & Metadata Badge */}
-        <div className="flex items-center justify-center gap-2 mb-2 flex-wrap text-xs text-gray-500 font-medium">
-          <span className="flex items-center gap-1">
-            <Calendar size={13} />
-            {journal.date || 'Januari 2026'}
-          </span>
-          <span>•</span>
-          <span className="flex items-center gap-1 text-purple-600 font-semibold bg-purple-50 px-2 py-0.5 rounded-full">
-            <Sparkles size={12} />
-            AI Ringkasan Terverifikasi
-          </span>
-        </div>
-
-        {/* Title */}
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-950 text-center tracking-tight mb-2 leading-snug">
-          {journal.title}
-        </h1>
-
-        {/* Author & Stats Row */}
-        <div className="flex items-center justify-center gap-4 text-xs sm:text-sm text-gray-600 font-medium mb-6 flex-wrap">
-          <span className="flex items-center gap-1.5">
-            <User size={15} className="text-gray-500" />
-            Penulis: <strong className="text-gray-800">{journal.author}</strong>
-          </span>
-          <span className="flex items-center gap-1 text-amber-500 font-bold">
-            <Star size={15} fill="currentColor" />
-            {ratingStats.avg} ({ratingStats.count} ulasan)
-          </span>
-          <span className="flex items-center gap-1 text-gray-500">
-            <Eye size={14} />
-            {journal.views || 0} dilihat
-          </span>
-        </div>
-
-        <div className="flex items-center justify-center gap-3 mb-8 flex-wrap">
-          {ringkasan?.isi && (
-            <button
-              onClick={handleDownload}
-              className="py-2.5 px-5 rounded-xl text-white font-semibold text-xs sm:text-sm shadow hover:opacity-95 active:scale-95 transition-all flex items-center gap-2"
-              style={{
-                background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
-                border: '1px solid #333333'
-              }}
-            >
-              <Download size={16} strokeWidth={2.5} />
-              <span>Unduh Ringkasan (.pdf)</span>
-            </button>
-          )}
-
+      <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-8 py-8 w-full space-y-8">
+        
+        {/* Navigation Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <button
-            type="button"
-            onClick={() => navigate(`/journal/${journal.id}`)}
-            className="py-2.5 px-5 rounded-xl bg-white text-gray-900 font-semibold text-xs sm:text-sm shadow border border-purple-400 hover:bg-gray-50 active:scale-95 transition-all flex items-center gap-2"
+            onClick={() => navigate(-1)}
+            className="dokmeh-btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5"
           >
-            <FileText size={16} strokeWidth={2.5} />
-            <span>Lihat Dokumen</span>
+            <ArrowLeft size={14} />
+            <span>Kembali</span>
           </button>
 
-          {downloadSuccess && (
-            <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1 animate-fade-in">
-              <CheckCircle2 size={16} /> Berhasil diunduh!
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleToggleBookmark}
+              className={`p-2 border text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                journal.isSaved
+                  ? 'bg-[#D83995]/10 border-[#D83995] text-[#D83995] shadow-hard-sm'
+                  : 'bg-[#FFFFFF] border-[#CBD5E1] text-[#64748B] hover:text-[#0F172A] hover:border-[#0F172A]'
+              }`}
+              title="Simpan Jurnal"
+            >
+              <Bookmark size={14} fill={journal.isSaved ? 'currentColor' : 'none'} />
+              <span>{journal.isSaved ? 'Tersimpan' : 'Simpan'}</span>
+            </button>
+
+            {journal.fileName && (
+              <button
+                onClick={() => navigate(`/view/${journal.id}`)}
+                className="dokmeh-btn-secondary !py-2 !px-3 text-xs font-semibold flex items-center gap-1.5"
+              >
+                <FileText size={14} />
+                <span>Buka Reader</span>
+              </button>
+            )}
+
+            {journal.fileName && (
+              <button
+                onClick={handleDownloadOriginal}
+                disabled={downloading}
+                className="dokmeh-btn-primary !py-2 !px-3 text-xs font-semibold flex items-center gap-1.5"
+              >
+                <Download size={14} />
+                <span>{downloading ? 'Mengunduh...' : 'Unduh Berkas'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Article Primary Overview Card */}
+        <article className="p-6 sm:p-10 space-y-6 bg-[#FFFFFF] border-2 border-[#0F172A] shadow-hard">
+          
+          {/* Metadata badges */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="primary">
+              {journal.category || 'Umum'}
+            </Badge>
+            <Badge variant="accent">
+              {journal.formatFile || 'PDF'}
+            </Badge>
+            <span className="font-mono text-xs text-[#64748B] tabular-nums">
+              Tahun: {journal.year}
             </span>
-          )}
-        </div>
-
-        {/* Cover Graphic Banner */}
-        <div className="w-full rounded-2xl overflow-hidden mb-8 shadow-sm border border-gray-100 bg-gradient-to-br from-[#fde2e4] via-[#e2ece9] to-[#dfe7fd] flex items-center justify-center p-6 sm:p-8">
-          <div className="relative w-40 h-40 sm:w-48 sm:h-48 flex items-center justify-center">
-            {/* Abstract floral illustration */}
-            <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-sm">
-              <circle cx="80" cy="70" r="35" fill="#52796f" opacity="0.8" />
-              <circle cx="120" cy="70" r="35" fill="#4ea8de" opacity="0.8" />
-              <circle cx="100" cy="95" r="35" fill="#b5e48c" opacity="0.8" />
-              <circle cx="100" cy="60" r="28" fill="#d9ed92" opacity="0.9" />
-              <rect x="96" y="95" width="8" height="75" fill="#2d6a4f" rx="4" />
-              <path d="M96 130 C70 120, 65 145, 96 145 Z" fill="#74c69d" />
-              <path d="M104 140 C130 130, 135 155, 104 155 Z" fill="#74c69d" />
-              <path d="M140 65 Q150 55 160 65 Q170 55 180 65 Q185 75 175 80 Q165 85 140 80 Z" fill="none" stroke="#222" strokeWidth="2" strokeLinecap="round" />
-            </svg>
           </div>
-        </div>
 
-        <section className="mb-10 bg-gray-50/80 p-5 rounded-2xl border border-gray-100">
-          <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-            <h2 className="text-sm font-bold text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles size={16} className="text-purple-600" />
-              Ringkasan Eksekutif AI
-            </h2>
-            {ringkasan?.isi && (
-              <a
-                href={store.getRingkasanPdfUrl(journal.id, false)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs font-semibold text-purple-700 hover:underline flex items-center gap-1"
-              >
-                <span>Buka PDF di Tab Baru</span>
-                <ExternalLink size={13} />
-              </a>
-            )}
-          </div>
-          {ringkasan?.isi ? (
-            <div className="space-y-3">
-              <div className="w-full rounded-xl overflow-hidden border border-gray-200 bg-white shadow-2xs">
-                <iframe
-                  title={`Ringkasan PDF ${journal.title}`}
-                  src={store.getRingkasanPdfUrl(journal.id, false)}
-                  className="w-full h-[560px] sm:h-[640px] border-0"
-                />
+          {/* Title */}
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight leading-snug">
+            {journal.title}
+          </h1>
+
+          {/* Author & Stats Strip */}
+          <div className="flex flex-wrap items-center justify-between gap-4 py-3 border-y border-[#E2E8F0] text-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-[#0F172A] text-white font-bold text-xs flex items-center justify-center font-mono">
+                {(journal.author || 'P')[0].toUpperCase()}
               </div>
-              {ringkasan.model && (
-                <p className="text-[11px] text-gray-500 font-medium">
-                  Model: {ringkasan.model}
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="py-4 text-center">
-              <p className="text-xs sm:text-sm font-semibold text-gray-700 mb-1">
-                Maaf, ringkasan AI belum tersedia untuk jurnal ini.
-              </p>
-              <p className="text-xs text-gray-500 mb-4">
-                Buka dokumen terlebih dahulu lalu klik tombol Summarize with AI.
-              </p>
-              <button
-                type="button"
-                onClick={() => navigate(`/journal/${journal.id}`)}
-                className="py-2 px-4 rounded-xl text-white font-semibold text-xs shadow hover:opacity-95 active:scale-95"
-                style={{
-                  background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
-                  border: '1px solid #333333'
-                }}
-              >
-                Lihat & Ringkas Jurnal
-              </button>
-            </div>
-          )}
-        </section>
-
-        <hr className="border-gray-200 mb-10" />
-
-        {/* NEW FEATURE: Review & Rating Section */}
-        <section className="mb-12">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-xl font-bold text-gray-950 flex items-center gap-2">
-                <MessageSquare size={20} className="text-purple-600" />
-                Ulasan & Rating Pembaca
-              </h2>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Berdasarkan feedback mahasiswa dan akademisi IMPAL
-              </p>
-            </div>
-
-            {/* Average Rating Pill */}
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-2 text-center">
-              <div className="flex items-center justify-center gap-1 text-amber-500 text-lg font-black">
-                <Star size={20} fill="currentColor" />
-                {ratingStats.count > 0 ? ratingStats.avg : '—'}
+              <div className="flex flex-col">
+                <span className="font-bold text-[#0F172A]">{journal.author || 'Anonim'}</span>
+                <span className="text-[11px] text-[#64748B] uppercase font-mono">Verified Scholar</span>
               </div>
-              <span className="text-[10px] text-gray-500 font-semibold">
-                {ratingStats.count} Total Ulasan
+            </div>
+
+            <div className="flex items-center gap-4 text-[#64748B] font-mono tabular-nums">
+              <span className="flex items-center gap-1">
+                <Eye size={13} className="text-[#0593C6]" />
+                {journal.views} Views
+              </span>
+              <span className="flex items-center gap-1">
+                <Download size={13} className="text-[#0593C6]" />
+                {journal.download} Downloads
+              </span>
+              <span className="flex items-center gap-1 text-amber-500">
+                <Star size={13} fill="currentColor" />
+                {reviewsData.averageRating.toFixed(1)} ({reviewsData.totalReviews} ulasan)
               </span>
             </div>
           </div>
 
-          {/* Add Review Form */}
-          <form onSubmit={handleAddReview} className="bg-[#fafafa] border border-gray-200 rounded-2xl p-5 mb-8 shadow-sm">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-3">
-              Tulis Ulasan Anda
-            </h3>
-
-            {/* Interactive Star Rating Picker */}
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-xs font-semibold text-gray-600">Rating:</span>
-              <div className="flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    type="button"
-                    key={star}
-                    onClick={() => setUserRating(star)}
-                    onMouseEnter={() => setHoverRating(star)}
-                    onMouseLeave={() => setHoverRating(0)}
-                    className="p-1 focus:outline-none transition-transform hover:scale-110"
-                  >
-                    <Star
-                      size={24}
-                      className={
-                        (hoverRating || userRating) >= star
-                          ? 'text-amber-400 fill-amber-400'
-                          : 'text-gray-300'
-                      }
-                    />
-                  </button>
-                ))}
-              </div>
-              <span className="text-xs font-bold text-amber-600 ml-2">
-                {userRating} / 5 Bintang
-              </span>
-            </div>
-
-            <div className="mb-3">
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Bagikan pandangan Anda mengenai jurnal atau ringkasan ini..."
-                rows={3}
-                minLength={3}
-                maxLength={2000}
-                className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-gray-300 focus:border-purple-600 focus:ring-1 focus:ring-purple-600 outline-none transition-all placeholder-gray-400 bg-white"
-                required
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] text-gray-400">
-                Masuk sebagai: <strong>{reviewerName || 'Tamu (Belum login)'}</strong>
-              </span>
-
-              <button
-                type="submit"
-                className="px-5 py-2 rounded-xl text-white font-semibold text-xs shadow-sm hover:opacity-95 active:scale-95 transition-all flex items-center gap-1.5"
-                style={{
-                  background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
-                }}
-              >
-                <Send size={14} />
-                <span>{auth.isAuthenticated ? 'Kirim Ulasan' : 'Login untuk Ulas'}</span>
-              </button>
-            </div>
-
-            {reviewError && (
-              <div className="mt-3 p-2 bg-red-50 text-red-700 text-xs rounded-lg text-center font-medium border border-red-200">
-                {reviewError}
-              </div>
-            )}
-
-            {reviewSubmitted && (
-              <div className="mt-3 p-2 bg-emerald-50 text-emerald-700 text-xs rounded-lg text-center font-medium border border-emerald-200">
-                Ulasan Anda berhasil disimpan!
-              </div>
-            )}
-          </form>
-
+          {/* Abstract or Content */}
           <div className="space-y-3">
-            {reviews.length === 0 ? (
-              <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center">
-                <p className="text-xs sm:text-sm font-semibold text-gray-700">
-                  Maaf, belum ada ulasan untuk jurnal ini.
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Jadilah pembaca pertama yang memberikan rating dan komentar.
-                </p>
+            <h3 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider font-mono">
+              Abstrak Publikasi
+            </h3>
+            <p className="text-sm sm:text-base text-[#334155] leading-relaxed whitespace-pre-line">
+              {journal.abstract || journal.content || 'Tidak ada naskah teks tertulis langsung untuk jurnal ini. Silakan baca melalui berkas terlampir.'}
+            </p>
+          </div>
+
+        </article>
+
+        {/* AI Semantic Summary Card */}
+        <section className="p-6 sm:p-8 space-y-4 bg-[#F8FAFC] border border-[#CBD5E1] shadow-hard-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#E2E8F0] gap-3">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-[#FFFFFF] border border-[#0F172A] text-[#0593C6]">
+                <Sparkles size={18} />
               </div>
-            ) : (
-              reviews.map((rev) => {
-                const canDeleteReview = auth.isAuthenticated && (
-                  auth.profile?.role === 'admin' ||
-                  (rev.userId != null && String(rev.userId) === String(auth.profile?.userId))
-                );
-                return (
-                  <div key={rev.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-2xs">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-purple-100 text-purple-700 font-bold text-xs flex items-center justify-center">
-                          {rev.author.slice(0, 1).toUpperCase()}
-                        </div>
-                        <div>
-                          <span className="font-bold text-xs text-gray-900 block leading-tight">
-                            {rev.author}
-                          </span>
-                          <span className="text-[10px] text-gray-400">
-                            {rev.createdAt}
-                          </span>
-                        </div>
-                      </div>
+              <div>
+                <h3 className="text-base font-bold text-[#0F172A]">
+                  Ringkasan Eksekutif Saintifik (AI Generated)
+                </h3>
+                <span className="text-xs text-[#64748B]">
+                  Disintesis secara otomatis menggunakan model inferensi akademik NVIDIA.
+                </span>
+              </div>
+            </div>
 
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-0.5 text-amber-400">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              size={14}
-                              fill={i < rev.rating ? 'currentColor' : 'none'}
-                              className={i < rev.rating ? 'text-amber-400' : 'text-gray-300'}
-                            />
-                          ))}
-                        </div>
-                        {canDeleteReview && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteReview(rev.id)}
-                            className="p-1 text-gray-400 hover:text-red-600 rounded"
-                            title="Hapus Ulasan"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
+            <button
+              onClick={handleDownloadSummaryPdf}
+              disabled={downloadingSummary}
+              className="dokmeh-btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5 self-start sm:self-auto"
+            >
+              <FileDown size={14} />
+              <span>{downloadingSummary ? 'Mengekspor...' : 'Unduh Ringkasan PDF'}</span>
+            </button>
+          </div>
 
-                    <p className="text-xs text-gray-700 leading-relaxed pl-9">
-                      {rev.komentar}
-                    </p>
-                  </div>
-                );
-              })
-            )}
+          <div className="text-xs sm:text-sm text-[#334155] leading-relaxed whitespace-pre-line bg-[#FFFFFF] p-5 border border-[#CBD5E1]">
+            {summary?.content || summary?.ringkasan || 'Ringkasan AI belum di-generate atau sedang diproses. Anda dapat mengunduh berkas ringkasan saat siap.'}
           </div>
         </section>
-      </article>
+
+        {/* Peer Reviews & Ratings Section */}
+        <ReviewSection
+          reviews={reviewsData.reviews}
+          averageRating={reviewsData.averageRating}
+          totalReviews={reviewsData.totalReviews}
+          onAddReview={handleAddReview}
+          onDeleteReview={handleDeleteReview}
+        />
+
+      </main>
     </div>
   );
 }

@@ -1,147 +1,150 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { store } from '../services/store';
+import { Link, useNavigate } from 'react-router-dom';
+import { Lock, User, ArrowRight, AlertCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
-export default function RegisterPage({ onRegisterSuccess }) {
+export default function RegisterPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleRegister = async (e) => {
+  const navigate = useNavigate();
+  const { register } = useAuth();
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const cleanUser = username.trim();
-    if (!/^[a-zA-Z0-9._-]{3,50}$/.test(cleanUser)) {
-      setError('Username harus 3–50 karakter (huruf, angka, titik, underscore, atau tanda hubung)');
-      return;
-    }
-    if (password.length < 6 || password.length > 100) {
-      setError('Password minimal 6 karakter');
-      return;
-    }
+    setErrorMessage('');
+
     if (password !== confirmPassword) {
-      setError('Password dan Konfirmasi Password tidak cocok');
+      setErrorMessage('Konfirmasi kata sandi tidak cocok.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMessage('Kata sandi minimal harus 6 karakter.');
       return;
     }
 
     setLoading(true);
-    setError('');
-    setSuccessMsg('');
-    const result = await store.apiRegister(cleanUser, password);
-    setLoading(false);
-
-    if (result.success) {
-      if (onRegisterSuccess) {
-        onRegisterSuccess(cleanUser);
-      }
-      setSuccessMsg('Akun berhasil dibuat! Mengalihkan ke halaman masuk...');
-      setTimeout(() => {
-        navigate('/login', { state: { registeredUsername: cleanUser } });
-      }, 1200);
-    } else {
-      setError(result.message || 'Registrasi gagal, coba username lain');
+    try {
+      await register(username.trim(), password);
+      navigate('/upload', { replace: true });
+    } catch (err) {
+      setErrorMessage(err.message || 'Pendaftaran gagal. Silakan coba username lain.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="page-enter flex-1 flex flex-col justify-center items-center bg-[#ededed] p-4 sm:p-6 min-h-screen">
-      {/* Centered White Card */}
-      <div className="w-full max-w-[360px] bg-white rounded-[32px] p-8 shadow-sm flex flex-col items-center">
-        {/* SukaBaca Brand Logo */}
-        <div className="mb-6 flex flex-col items-center cursor-pointer" onClick={() => navigate('/home')}>
-          <img 
-            src="/sukabaca-book.png" 
-            alt="SukaBaca Logo" 
-            className="w-20 h-auto object-contain mb-1"
-          />
-          <h1 className="text-2xl font-black tracking-tight text-[#4c1d95]">
-            Suka<span className="text-[#b83c9c]">Baca</span>
-          </h1>
-        </div>
+    <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-[#334155] font-sans selection:bg-[#0593C6] selection:text-white">
+      {/* Crisp Header */}
+      <header className="w-full px-6 py-4 flex items-center justify-between border-b border-[#E2E8F0] bg-[#FFFFFF]">
+        <Link to="/home" className="flex items-center gap-2 group text-decoration-none">
+          <img src="/Group 11.png" alt="SukaBaca Logo" className="h-7 w-auto object-contain" />
+          <span className="font-extrabold text-2xl tracking-tight text-[#0F172A]">
+            Suka<span className="text-[#0593C6]">Baca</span>
+          </span>
+        </Link>
 
-        {error && (
-          <div className="w-full mb-3 p-2 bg-red-50 text-red-600 text-xs rounded-lg text-center border border-red-200">
-            {error}
-          </div>
-        )}
+        <Link to="/home" className="dokmeh-btn-secondary !py-1.5 !px-3 text-xs font-semibold">
+          Ke Beranda
+        </Link>
+      </header>
 
-        {/* Success message */}
-        {successMsg && (
-          <div className="w-full mb-3 p-2 bg-green-50 text-green-700 text-xs rounded-lg text-center border border-green-200">
-            {successMsg}
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleRegister} className="w-full space-y-3.5">
-          <div>
-            <label className="block text-xs font-semibold text-gray-800 mb-1.5 ml-0.5">
-              Username
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
-              className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-gray-400 focus:border-purple-600 focus:ring-1 focus:ring-purple-600 outline-none transition-all placeholder-gray-400 text-gray-800"
-            />
+      {/* Main Register Card */}
+      <main className="flex-1 flex flex-col justify-center items-center px-4 py-12">
+        <div className="w-full max-w-md p-8 sm:p-10 space-y-6 bg-[#FFFFFF] border-2 border-[#0F172A] shadow-hard">
+          
+          <div className="space-y-1.5 text-center">
+            <h1 className="text-2xl font-extrabold text-[#0F172A] tracking-tight">
+              Daftar Akun Baru
+            </h1>
+            <p className="text-xs text-[#64748B]">
+              Bergabung dengan komunitas riset SukaBaca dan kelola publikasi ilmiah.
+            </p>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-800 mb-1.5 ml-0.5">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-gray-400 focus:border-purple-600 focus:ring-1 focus:ring-purple-600 outline-none transition-all placeholder-gray-400 text-gray-800"
-            />
-          </div>
+          {errorMessage && (
+            <div className="p-3 bg-red-50 border border-red-300 text-red-700 text-xs flex items-center gap-2">
+              <AlertCircle size={15} className="shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-800 mb-1.5 ml-0.5">
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Re-enter your password"
-              className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-gray-400 focus:border-purple-600 focus:ring-1 focus:ring-purple-600 outline-none transition-all placeholder-gray-400 text-gray-800"
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-[#0F172A] uppercase tracking-wider font-mono">
+                Username
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Masukkan username Anda"
+                  className="dokmeh-input !pl-10 text-xs"
+                />
+                <User size={15} className="absolute left-3 top-3 text-[#94A3B8]" />
+              </div>
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 mt-2 rounded-xl text-xs sm:text-sm font-semibold text-white shadow-sm hover:opacity-95 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{
-              background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
-              border: '1px solid #333333'
-            }}
-          >
-            {loading ? 'Mendaftarkan...' : 'Register'}
-          </button>
-        </form>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-[#0F172A] uppercase tracking-wider font-mono">
+                Kata Sandi
+              </label>
+              <div className="relative">
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Minimal 6 karakter"
+                  className="dokmeh-input !pl-10 text-xs"
+                />
+                <Lock size={15} className="absolute left-3 top-3 text-[#94A3B8]" />
+              </div>
+            </div>
 
-        {/* Footer Link */}
-        <div className="mt-8 text-center">
-          <p className="text-xs sm:text-sm text-gray-900 font-medium">
-            Already have an account?{' '}
-            <Link 
-              to="/login" 
-              className="font-bold underline decoration-1 underline-offset-2 hover:text-purple-700 transition-colors"
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-[#0F172A] uppercase tracking-wider font-mono">
+                Konfirmasi Kata Sandi
+              </label>
+              <div className="relative">
+                <input
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Ulangi kata sandi"
+                  className="dokmeh-input !pl-10 text-xs"
+                />
+                <Lock size={15} className="absolute left-3 top-3 text-[#94A3B8]" />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="dokmeh-btn-primary w-full !py-2.5 text-xs sm:text-sm font-bold shadow-hard mt-3"
             >
-              Login
+              <span>{loading ? 'Mendaftarkan...' : 'Daftar Sekarang'}</span>
+              <ArrowRight size={14} />
+            </button>
+          </form>
+
+          <div className="pt-4 border-t border-[#E2E8F0] text-center text-xs text-[#64748B]">
+            Sudah memiliki akun?{' '}
+            <Link to="/login" className="text-[#0593C6] font-bold hover:underline">
+              Masuk
             </Link>
-          </p>
+          </div>
+
         </div>
-      </div>
+      </main>
     </div>
   );
 }

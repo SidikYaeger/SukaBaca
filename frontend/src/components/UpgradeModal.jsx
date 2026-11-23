@@ -1,104 +1,139 @@
-import React from 'react';
-import { Crown, CheckCircle, AlertCircle } from 'lucide-react';
-import useAnimatedPresence from '../hooks/useAnimatedPresence';
+import React, { useState } from 'react';
+import { X, Check, Crown, Sparkles, CheckCircle2 } from 'lucide-react';
+import { useSubscription } from '../context/SubscriptionContext';
 
-export default function UpgradeModal({ 
-  isOpen, 
-  onClose, 
-  onUpgrade,
-  onCancelPlan,
-  isPro = false,
-  upgradeSuccess,
-  errorMessage = ''
-}) {
-  const { isMounted, isExiting } = useAnimatedPresence(isOpen, 220);
+export default function UpgradeModal({ onClose }) {
+  const { subscription, isPro, upgradePlan, cancelPlan } = useSubscription();
+  const [loading, setLoading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
 
-  if (!isMounted) return null;
+  const handleUpgrade = async () => {
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      await upgradePlan('Ultra Academic Pro');
+      setSuccessMsg('Paket Ultra Academic Pro berhasil diaktifkan!');
+      setTimeout(() => {
+        onClose();
+      }, 1500);
+    } catch (err) {
+      setErrorMsg(err.message || 'Gagal memperbarui langganan.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      await cancelPlan();
+      setSuccessMsg('Langganan telah dibatalkan kembali ke Free Access.');
+      setTimeout(() => {
+        onClose();
+      }, 1500);
+    } catch (err) {
+      setErrorMsg(err.message || 'Gagal membatalkan paket.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div 
-        className={`fixed inset-0 bg-black/40 cursor-pointer ${
-          isExiting ? 'animate-backdrop-out' : 'animate-backdrop-in'
-        }`}
-        onClick={onClose}
-      />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+      <div className="bg-[#FFFFFF] border-2 border-[#0F172A] shadow-hard max-w-lg w-full p-6 sm:p-8 space-y-6 relative">
+        
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-5 right-5 p-1.5 border border-[#CBD5E1] bg-[#FFFFFF] text-[#64748B] hover:text-[#0F172A] hover:border-[#0F172A]"
+          title="Tutup Modal"
+        >
+          <X size={16} />
+        </button>
 
-      <div 
-        className={`relative bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-gray-100 text-center z-10 ${
-          isExiting ? 'animate-modal-out' : 'animate-modal-in'
-        }`}
-      >
-        <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 mx-auto mb-3 flex items-center justify-center">
-          <Crown size={28} />
+        {/* Header */}
+        <div className="space-y-1.5">
+          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-[#D83995]/10 text-[#D83995] text-[10px] font-bold border border-[#D83995]/30 uppercase font-mono tracking-wider">
+            <Crown size={12} />
+            <span>Academic Tier & Quota</span>
+          </div>
+          <h2 className="text-xl sm:text-2xl font-extrabold text-[#0F172A] tracking-tight">
+            Tingkatkan Kapasitas Riset Anda
+          </h2>
+          <p className="text-xs text-[#64748B]">
+            Dapatkan kuota inferensi tak terbatas untuk sintesis ringkasan jurnal dan unduhan naskah penuh.
+          </p>
         </div>
 
-        <h3 className="text-lg font-extrabold text-gray-900 mb-1">
-          {isPro ? 'Kelola Paket Pro SukaBaca' : 'Upgrade Subscription SukaBaca'}
-        </h3>
-        <p className="text-xs text-gray-500 mb-4">
-          {isPro
-            ? 'Anda saat ini menikmati akses penuh Pro SukaBaca AI dan kuota ringkasan tak terbatas.'
-            : 'Dapatkan ringkasan tak terbatas serta akses model penalaran lanjut Pro SukaBaca AI.'}
-        </p>
-
-        <div className="bg-purple-50/80 rounded-2xl p-4 text-left border border-purple-100 mb-5 space-y-2 text-xs text-gray-700">
-          <div className="flex items-center gap-2">
-            <CheckCircle size={15} className="text-purple-600 flex-shrink-0" />
-            <span>Unlimited ringkasan jurnal harian</span>
+        {/* Status Alerts */}
+        {errorMsg && (
+          <div className="p-3 bg-red-50 border border-red-300 text-red-700 text-xs">
+            {errorMsg}
           </div>
-          <div className="flex items-center gap-2">
-            <CheckCircle size={15} className="text-purple-600 flex-shrink-0" />
-            <span>Akses penuh Pro SukaBaca AI</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <CheckCircle size={15} className="text-purple-600 flex-shrink-0" />
-            <span>Pemrosesan otomatis dokumen akademik panjang</span>
-          </div>
-        </div>
-
-        {errorMessage && (
-          <div role="alert" className="mb-3 p-2.5 bg-red-50 text-red-700 rounded-xl text-xs border border-red-200 flex items-center gap-2 text-left">
-            <AlertCircle size={14} className="flex-shrink-0" />
-            <span>{errorMessage}</span>
+        )}
+        {successMsg && (
+          <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-700 text-xs flex items-center gap-1.5">
+            <CheckCircle2 size={14} />
+            <span>{successMsg}</span>
           </div>
         )}
 
-        {upgradeSuccess ? (
-          <div className="p-3 bg-emerald-50 text-emerald-700 rounded-xl font-bold text-xs border border-emerald-200">
-            Status langganan berhasil diperbarui!
+        {/* Feature Comparison Box */}
+        <div className="p-5 bg-[#F8FAFC] border border-[#CBD5E1] space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-[#E2E8F0]">
+            <span className="text-xs font-bold text-[#0F172A] font-mono uppercase">Paket Saat Ini:</span>
+            <span className="font-mono text-xs font-bold text-[#0593C6] bg-[#FFFFFF] px-2 py-0.5 border border-[#CBD5E1]">
+              {subscription.plan}
+            </span>
           </div>
-        ) : (
-          <div className="flex gap-2">
+
+          <div className="space-y-2 text-xs text-[#334155]">
+            <div className="flex items-center gap-2">
+              <Check size={14} className="text-[#0593C6] shrink-0" />
+              <span>Akses Penuh ke 1.2M+ Repositori Publikasi</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Check size={14} className="text-[#0593C6] shrink-0" />
+              <span>{isPro ? 'Ringkasan Saintifik AI Tanpa Batas' : '5 Ringkasan Saintifik AI per Hari'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Check size={14} className="text-[#0593C6] shrink-0" />
+              <span>Ekspor Ringkasan Format PDF Resmi</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="space-y-2">
+          {!isPro ? (
             <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50 active:scale-95"
+              onClick={handleUpgrade}
+              disabled={loading}
+              className="dokmeh-btn-primary w-full !py-2.5 text-xs sm:text-sm font-bold shadow-hard flex items-center justify-center gap-2"
             >
-              Tutup
+              <Sparkles size={16} />
+              <span>{loading ? 'Mengaktifkan...' : 'Aktifkan Ultra Academic Pro'}</span>
             </button>
-            {isPro ? (
-              <button
-                type="button"
-                onClick={onCancelPlan}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow active:scale-95"
-              >
-                Batalkan Pro
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onUpgrade}
-                className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold shadow hover:opacity-95 active:scale-95"
-                style={{
-                  background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
-                }}
-              >
-                Aktifkan Pro
-              </button>
-            )}
-          </div>
-        )}
+          ) : (
+            <button
+              onClick={handleCancel}
+              disabled={loading}
+              className="w-full py-2 text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-300 transition-colors shadow-hard-sm"
+            >
+              {loading ? 'Membatalkan...' : 'Batalkan Langganan Pro'}
+            </button>
+          )}
+
+          <button
+            onClick={onClose}
+            className="dokmeh-btn-secondary w-full text-xs"
+          >
+            Tutup
+          </button>
+        </div>
+
       </div>
     </div>
   );

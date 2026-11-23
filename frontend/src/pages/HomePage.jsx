@@ -1,13 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search as SearchIcon } from 'lucide-react';
-import { store } from '../services/store';
+import Header from '../components/layout/Header';
+import { ACADEMIC_TOPICS } from '../config/app.config';
 
-export default function HomePage({ isAuthenticated = false, onLogout }) {
+export default function HomePage() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const navigate = useNavigate();
-  const auth = store.getAuth();
-  const isUserLoggedIn = isAuthenticated || auth.isAuthenticated;
+
+  // Typing animation cycling through academic topics
+  const [topicIndex, setTopicIndex] = useState(0);
+  const [displayedText, setDisplayedText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    const currentTopic = ACADEMIC_TOPICS[topicIndex];
+    let typingSpeed = isDeleting ? 45 : 90;
+
+    if (!isDeleting && displayedText === currentTopic) {
+      // Pause at full word before deleting
+      const timeout = setTimeout(() => setIsDeleting(true), 1600);
+      return () => clearTimeout(timeout);
+    } else if (isDeleting && displayedText === '') {
+      // Move to next topic after deletion
+      setIsDeleting(false);
+      setTopicIndex((prev) => (prev + 1) % ACADEMIC_TOPICS.length);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setDisplayedText((prev) =>
+        isDeleting
+          ? currentTopic.substring(0, prev.length - 1)
+          : currentTopic.substring(0, prev.length + 1)
+      );
+    }, typingSpeed);
+
+    return () => clearTimeout(timer);
+  }, [displayedText, isDeleting, topicIndex]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -19,200 +49,108 @@ export default function HomePage({ isAuthenticated = false, onLogout }) {
     navigate(`/search?q=${encodeURIComponent(topic)}`);
   };
 
-  const topics = [
-    'Engineering', 'Mathematics', 'Biology',
-    'Computer Science', 'Climate Change',
-    'Medicine', 'Physics', 'Social Science',
-    'Astrophysics', 'Chemistry'
-  ];
-
   return (
-    <div className="page-enter flex-1 flex flex-col bg-white min-h-screen text-gray-900 font-sans">
-      {/* Top Navbar matching ResearchGate with SukaBaca Purple Nuance */}
-      <header className="w-full border-b border-purple-100 bg-white sticky top-0 z-30 shadow-2xs">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          {/* SukaBaca Brand Logo */}
-          <div 
-            onClick={() => navigate('/home')} 
-            className="cursor-pointer flex items-center gap-2 select-none"
-          >
-            <img src="/sukabaca-book.png" alt="SukaBaca Logo" className="h-8 w-auto object-contain" />
-            <span className="text-2xl font-black tracking-tight text-[#4c1d95]">
-              Suka<span className="text-[#b83c9c]">Baca</span>
+    <div className="min-h-screen flex flex-col bg-[#FFFFFF] text-[#334155] font-sans selection:bg-[#0593C6] selection:text-white">
+      {/* Header */}
+      <Header />
+
+      {/* Main Container */}
+      <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-8 py-14 md:py-20 w-full space-y-20">
+        
+        {/* Centered Hero & Search Section */}
+        <section className="text-center max-w-3xl mx-auto space-y-6">
+          
+          {/* High-Contrast Editorial Headline with Typing Animation */}
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[#0F172A] tracking-tight leading-[1.15]">
+            Discover{' '}
+            <span className="text-[#0593C6] inline-block min-w-[200px] text-left sm:text-center">
+              {displayedText}
+              <span className="animate-pulse font-normal text-[#0593C6]">|</span>
             </span>
-          </div>
+            .
+          </h1>
 
-          {/* Right Navigation */}
-          <div className="flex items-center gap-4 text-sm font-semibold">
-            {!isUserLoggedIn ? (
-              <>
-                <button
-                  onClick={() => navigate('/login')}
-                  className="text-gray-700 hover:text-purple-800 transition-colors px-2 py-1"
-                >
-                  Log in
-                </button>
-                <button
-                  onClick={() => navigate('/register')}
-                  className="px-4 py-2 rounded-lg text-white font-bold text-xs sm:text-sm shadow-xs hover:opacity-95 active:scale-95 transition-all"
-                  style={{
-                    background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
-                    border: '1px solid #6b21a8'
-                  }}
-                >
-                  Join for free
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => navigate('/upload')}
-                  className="px-4 py-2 rounded-lg text-white font-bold text-xs sm:text-sm shadow-xs hover:opacity-95 active:scale-95 transition-all"
-                  style={{
-                    background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
-                  }}
-                >
-                  Dashboard ({typeof auth.user === 'object' ? (auth.user.username || auth.user.name || 'User') : (auth.user || 'User')})
-                </button>
-                <button
-                  onClick={() => {
-                    if (onLogout) onLogout();
-                    store.clearAuth();
-                    navigate('/home');
-                  }}
-                  className="text-gray-500 hover:text-red-600 transition-colors px-2 py-1 text-xs font-medium"
-                >
-                  Logout
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+          {/* Subtitle */}
+          <p className="text-base sm:text-lg text-[#64748B] leading-relaxed max-w-2xl mx-auto font-normal">
+            Akses jutaan publikasi ilmiah, artikel jurnal terindeks, dan ringkasan saintifik berbasis AI dalam satu repositori terstandarisasi.
+          </p>
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-6xl mx-auto px-6 py-12 w-full">
-        {/* Section 1: Discover research (Hero) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center py-8">
-          {/* Left Illustration Circle with Purple Theme */}
-          <div className="lg:col-span-5 flex justify-center">
-            <div className="relative w-64 h-64 sm:w-72 sm:h-72 rounded-full bg-gradient-to-br from-[#f8f5fc] via-[#f3e8ff] to-[#eeddfd] flex items-center justify-center p-6 border-2 border-purple-200/80 shadow-sm">
-              {/* Scientific Vector Collage */}
-              <svg viewBox="0 0 240 240" className="w-full h-full drop-shadow-xs">
-                {/* Laboratory Flask & Beaker in Purple Tones */}
-                <path d="M105 70 L105 100 L85 140 A10 10 0 0 0 94 154 L146 154 A10 10 0 0 0 155 140 L135 100 L135 70 Z" fill="#7c3a7f" opacity="0.9" />
-                <rect x="100" y="66" width="40" height="7" rx="3" fill="#581c87" />
-                <circle cx="112" cy="132" r="5" fill="#fbcfe8" />
-                <circle cx="128" cy="125" r="4" fill="#fbcfe8" />
-
-                {/* Atom model */}
-                <ellipse cx="60" cy="80" rx="28" ry="12" fill="none" stroke="#9333ea" strokeWidth="2.5" transform="rotate(-30 60 80)" />
-                <ellipse cx="60" cy="80" rx="28" ry="12" fill="none" stroke="#9333ea" strokeWidth="2.5" transform="rotate(30 60 80)" />
-                <circle cx="60" cy="80" r="5" fill="#c084fc" />
-
-                {/* Satellite */}
-                <g transform="translate(145, 120) rotate(-25)">
-                  <rect x="10" y="20" width="28" height="34" rx="4" fill="#6c757d" stroke="#343a40" strokeWidth="2" />
-                  <line x1="0" y1="37" x2="10" y2="37" stroke="#343a40" strokeWidth="3" />
-                  <line x1="38" y1="37" x2="48" y2="37" stroke="#343a40" strokeWidth="3" />
-                  <rect x="-18" y="25" width="18" height="24" rx="2" fill="#7c3a7f" stroke="#581c87" strokeWidth="1.5" />
-                  <rect x="48" y="25" width="18" height="24" rx="2" fill="#7c3a7f" stroke="#581c87" strokeWidth="1.5" />
-                  <circle cx="24" cy="37" r="4" fill="#ffd166" />
-                </g>
-
-                {/* Heart Rate / EKG Graph Monitor */}
-                <g transform="translate(40, 140)">
-                  <rect x="0" y="0" width="60" height="42" rx="4" fill="#212529" />
-                  <path d="M5 24 L18 24 L24 10 L30 34 L36 18 L42 24 L55 24" fill="none" stroke="#d946ef" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                </g>
-
-                {/* DNA Double Helix */}
-                <g transform="translate(75, 175)">
-                  <path d="M0 10 Q12 0 24 10 T48 10 T72 10" fill="none" stroke="#b83c9c" strokeWidth="2.5" />
-                  <path d="M0 10 Q12 20 24 10 T48 10 T72 10" fill="none" stroke="#7da5d9" strokeWidth="2.5" />
-                  <line x1="12" y1="5" x2="12" y2="15" stroke="#495057" strokeWidth="1.5" />
-                  <line x1="36" y1="5" x2="36" y2="15" stroke="#495057" strokeWidth="1.5" />
-                  <line x1="60" y1="5" x2="60" y2="15" stroke="#495057" strokeWidth="1.5" />
-                </g>
-              </svg>
+          {/* Centered Unified Search Bar */}
+          <form onSubmit={handleSearchSubmit} className="pt-2 max-w-2xl mx-auto">
+            <div className="dokmeh-search-container">
+              <SearchIcon size={18} className="text-[#64748B] shrink-0 mr-1.5" />
+              <input
+                type="text"
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                placeholder="Cari judul jurnal, topik riset, atau nama penulis..."
+                className="dokmeh-search-input focus:outline-none focus:ring-0"
+              />
+              <button
+                type="submit"
+                className="dokmeh-btn-primary !py-2 !px-5 text-xs sm:text-sm ml-1"
+              >
+                <span>Search</span>
+              </button>
             </div>
-          </div>
+          </form>
 
-          {/* Right Text & Search Box */}
-          <div className="lg:col-span-7 space-y-4">
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-[#2e1065] tracking-tight">
-              Discover research
-            </h1>
-            <p className="text-sm sm:text-base text-gray-700 leading-relaxed max-w-xl">
-              access to many publication pages and stay up to date with what's happening in your field.
-            </p>
-
-            {/* Search Publications Bar */}
-            <form onSubmit={handleSearchSubmit} className="pt-2 max-w-lg">
-              <div className="relative flex items-center border-2 border-purple-300 focus-within:border-purple-600 rounded-xl overflow-hidden bg-white shadow-xs transition-all">
-                <SearchIcon size={18} className="text-purple-400 ml-3.5 flex-shrink-0" />
-                <input
-                  type="text"
-                  value={searchKeyword}
-                  onChange={(e) => setSearchKeyword(e.target.value)}
-                  placeholder="Search publications..."
-                  className="w-full px-3 py-3 text-sm outline-none placeholder-gray-400 text-gray-900"
-                />
-                <button
-                  type="submit"
-                  className="px-4 py-2 mr-1.5 rounded-lg text-white font-bold text-xs shadow hover:opacity-95 active:scale-95 transition-all"
-                  style={{
-                    background: 'linear-gradient(90deg, #7da5d9 0%, #b83c9c 100%)',
-                  }}
-                >
-                  Search
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        <div className="border-t border-purple-100 my-10" />
-
-        {/* Section 2: Connect with your scientific community & Topic Pages */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 py-6 items-start">
-          {/* Left Description */}
-          <div className="lg:col-span-5 space-y-3">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#2e1065] tracking-tight">
-              Connect with your scientific community
-            </h2>
-            <p className="text-sm text-gray-700 leading-relaxed max-w-md">
-              Share your research, collaborate with your peers, and get the support you need to advance your career.
-            </p>
-          </div>
-
-          {/* Right Topic Pills in Purple Hue */}
-          <div className="lg:col-span-7">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-purple-900 mb-4">
-              VISIT TOPIC PAGES
-            </h3>
-
-            <div className="flex flex-wrap gap-2.5">
-              {topics.map((topic) => (
+          {/* Centered Academic Topics Pills */}
+          <div className="pt-4 space-y-2.5">
+            <span className="text-xs font-bold text-[#0F172A] uppercase tracking-wider block font-mono">
+              Topik Riset Terpopuler
+            </span>
+            <div className="flex flex-wrap justify-center gap-2">
+              {ACADEMIC_TOPICS.map((topic) => (
                 <button
                   key={topic}
                   onClick={() => handleTopicClick(topic)}
-                  className="px-4 py-2 rounded-full border border-purple-400 text-purple-700 hover:bg-purple-50 active:scale-95 text-xs sm:text-sm font-semibold transition-all shadow-2xs"
+                  className="text-xs px-3 py-1.5 border border-[#CBD5E1] bg-[#FFFFFF] hover:bg-[#F8FAFC] hover:border-[#0F172A] hover:text-[#0F172A] font-medium transition-all shadow-hard-sm active:translate-x-0.5 active:translate-y-0.5"
                 >
                   {topic}
                 </button>
               ))}
             </div>
           </div>
-        </div>
-      </main>
 
-      {/* Footer in soft purple */}
-      <footer className="w-full bg-[#fbf9fe] border-t border-purple-100 py-6 mt-12 text-xs text-gray-600">
-        <div className="max-w-6xl mx-auto px-6 text-center text-[11px]">
-          <p className="text-purple-600 font-medium">IMPAL Coursework Edition • Telkom University</p>
-        </div>
-      </footer>
+        </section>
+
+        {/* Feature Cards Section (No Boxed Icons) */}
+        <section className="space-y-8 pt-4">
+          <div className="text-center max-w-xl mx-auto space-y-2">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
+              Dirancang untuk Ekosistem Akademik
+            </h2>
+            <p className="text-xs sm:text-sm text-[#64748B]">
+              Infrastruktur discovery yang cepat, bersih, dan berorientasi presisi bagi akademisi dan periset.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-6 bg-[#F8FAFC] border border-[#CBD5E1] shadow-hard-sm space-y-2.5">
+              <h3 className="text-base font-bold text-[#0F172A]">Smart Filter & Discovery</h3>
+              <p className="text-xs text-[#64748B] leading-relaxed">
+                Filter rentang tahun publikasi, ketersediaan naskah penuh, bidang studi, dan urutkan berdasarkan metrik sitasi atau jumlah pembaca.
+              </p>
+            </div>
+
+            <div className="p-6 bg-[#F8FAFC] border border-[#CBD5E1] shadow-hard-sm space-y-2.5">
+              <h3 className="text-base font-bold text-[#0F172A]">AI Literature Summarizer</h3>
+              <p className="text-xs text-[#64748B] leading-relaxed">
+                Ekstrak metodologi, temuan kunci, dan kesimpulan jurnal secara terstruktur dengan sistem pemrosesan bahasa alami.
+              </p>
+            </div>
+
+            <div className="p-6 bg-[#F8FAFC] border border-[#CBD5E1] shadow-hard-sm space-y-2.5">
+              <h3 className="text-base font-bold text-[#0F172A]">Peer Reviews & Discussions</h3>
+              <p className="text-xs text-[#64748B] leading-relaxed">
+                Tingkatkan validitas saintifik melalui catatan ulasan, pemberian rating bintang, dan diskusi terbuka antar sesama akademisi.
+              </p>
+            </div>
+          </div>
+        </section>
+
+      </main>
     </div>
   );
 }
