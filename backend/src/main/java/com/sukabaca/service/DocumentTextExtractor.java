@@ -59,25 +59,37 @@ public class DocumentTextExtractor {
 
         try {
             byte[] bytes = Files.readAllBytes(filePath);
-            if ("txt".equals(ext)) {
+            return extractTextFromBytes(ext, bytes);
+        } catch (IOException ignored) {
+            return null;
+        }
+    }
+
+    public String extractTextFromBytes(String ext, byte[] bytes) {
+        if (ext == null || bytes == null || bytes.length == 0) {
+            return null;
+        }
+        String normalizedExt = ext.toLowerCase();
+        try {
+            if ("txt".equals(normalizedExt)) {
                 return new String(bytes, StandardCharsets.UTF_8);
             }
-            if ("pdf".equals(ext)) {
+            if ("pdf".equals(normalizedExt)) {
                 try (PDDocument doc = Loader.loadPDF(bytes)) {
                     PDFTextStripper stripper = new PDFTextStripper();
                     return stripper.getText(doc);
                 }
             }
-            if ("docx".equals(ext)) {
+            if ("docx".equals(normalizedExt)) {
                 try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(bytes));
                      XWPFWordExtractor extractor = new XWPFWordExtractor(doc)) {
                     return extractor.getText();
                 }
             }
-        } catch (IOException ignored) {
+        } catch (Exception ignored) {
             return null;
         }
-        return null;
+        return "";
     }
 
     private static String safe(String val) {

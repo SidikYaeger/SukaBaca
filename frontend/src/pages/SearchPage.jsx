@@ -46,10 +46,6 @@ export default function SearchPage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
 
-  const hasActiveFilters = Boolean(
-    pubDateRange || onlyAbstract || onlyWithFile || selectedCategory || selectedFormat || savedOnly
-  );
-
   const syncSearchParams = (qVal, categoryVal) => {
     const params = {};
     if (qVal) params.q = qVal;
@@ -167,7 +163,8 @@ export default function SearchPage() {
       return;
     }
     try {
-      await journalService.toggleBookmark(id);
+      const target = journals.find((j) => j.id === id);
+      await journalService.toggleBookmark(id, Boolean(target?.isSaved));
       setJournals((prev) =>
         prev.map((j) => (j.id === id ? { ...j, isSaved: !j.isSaved } : j))
       );
@@ -224,29 +221,9 @@ export default function SearchPage() {
             </div>
           </form>
 
-          {/* Sub-bar with active filter indicator and controls */}
-          <div className="flex flex-wrap items-center justify-between text-xs gap-3 pt-1 border-t border-[#E2E8F0]">
-            <div className="flex items-center gap-2">
-              <span className="text-[#64748B] font-mono text-[11px] uppercase">Query:</span>
-              <span className="font-bold text-[#0F172A] bg-[#FFFFFF] px-2 py-0.5 border border-[#CBD5E1] font-mono">
-                {activeQuery ? `"${activeQuery}"` : 'ALL_PUBLICATIONS'}
-              </span>
-
-              {selectedCategory && (
-                <span className="font-bold text-[#0593C6] bg-[#FFFFFF] px-2 py-0.5 border border-[#0593C6]/40 font-mono">
-                  {selectedCategory}
-                </span>
-              )}
-
-              {hasActiveFilters && (
-                <span className="dokmeh-badge-active">
-                  <span className="w-1.5 h-1.5 bg-[#D83995]" />
-                  <span>FILTER_ACTIVE</span>
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3 ml-auto sm:ml-0">
+          {/* Sub-bar with filter toggle and sort controls */}
+          <div className="flex flex-wrap items-center justify-end text-xs gap-3 pt-1 border-t border-[#E2E8F0]">
+            <div className="flex items-center gap-3">
               {/* Mobile Filter Toggle */}
               <button
                 type="button"

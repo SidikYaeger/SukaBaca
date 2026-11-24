@@ -4,12 +4,19 @@
 import { API_ENDPOINTS } from '../config/api.config';
 import { request } from './api.client';
 
+const normalizeReview = (r) => ({
+  ...r,
+  id: r.id ?? r.reviewId,
+  username: r.user?.username || r.username || null,
+  author: r.user?.username || r.user?.name || r.author || 'Pengguna',
+});
+
 export const reviewService = {
   async getReviewsByJournal(journalId) {
     try {
       const data = await request(API_ENDPOINTS.REVIEWS_BY_JOURNAL(journalId));
       return {
-        reviews: Array.isArray(data.reviews) ? data.reviews : [],
+        reviews: Array.isArray(data.reviews) ? data.reviews.map(normalizeReview) : [],
         averageRating: Number(data.averageRating) || 0,
         totalReviews: Number(data.totalReviews) || 0,
       };

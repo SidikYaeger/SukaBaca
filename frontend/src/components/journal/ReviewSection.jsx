@@ -174,7 +174,7 @@ export default function ReviewSection({
                   </div>
                 </div>
 
-                {onDeleteReview && (rev.author === user || user === 'admin') && (
+                {onDeleteReview && (rev.username === user || rev.author === user || user === 'admin') && (
                   <button
                     onClick={() => onDeleteReview(rev.id)}
                     className="text-[#94A3B8] hover:text-red-600 p-1 transition-colors"

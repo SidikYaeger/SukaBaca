@@ -73,12 +73,18 @@ export default function JournalViewPage() {
               <Skeleton className="w-full h-8" />
               <Skeleton className="w-full h-full min-h-[500px]" />
             </div>
-          ) : fileUrl ? (
+          ) : fileUrl && !['DOCX', 'DOC'].includes((journal?.formatFile || '').toUpperCase()) ? (
             <iframe
               src={fileUrl}
               title={journal?.title}
               className="w-full h-full flex-1 border-0"
             />
+          ) : journal?.content ? (
+            <div className="flex-1 p-6 sm:p-10 overflow-y-auto space-y-4">
+              <div className="text-sm sm:text-base text-[#1E293B] leading-relaxed whitespace-pre-wrap max-w-3xl mx-auto">
+                {journal.content}
+              </div>
+            </div>
           ) : (
             <div className="p-8 text-center text-xs text-[#64748B] space-y-3 m-auto">
               <FileText size={36} className="mx-auto text-[#0F172A]" />

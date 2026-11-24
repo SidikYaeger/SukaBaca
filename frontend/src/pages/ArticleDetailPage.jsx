@@ -65,7 +65,7 @@ export default function ArticleDetailPage() {
       return;
     }
     try {
-      await journalService.toggleBookmark(id);
+      await journalService.toggleBookmark(id, Boolean(journal?.isSaved));
       setJournal((prev) => (prev ? { ...prev, isSaved: !prev.isSaved } : prev));
     } catch {
       // Ignore
@@ -77,6 +77,7 @@ export default function ArticleDetailPage() {
     setDownloading(true);
     try {
       await journalService.downloadJournal(journal.id, journal.fileName);
+      setJournal((prev) => (prev ? { ...prev, download: (Number(prev.download) || 0) + 1 } : prev));
     } catch {
       // Ignore
     } finally {

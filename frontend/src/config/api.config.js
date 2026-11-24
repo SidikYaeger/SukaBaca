@@ -20,8 +20,10 @@ export const API_ENDPOINTS = {
   JOURNAL_FILE: (id) => `${API_BASE_URL}/journals/${id}/file`,
 
   // AI Summaries
-  JOURNAL_SUMMARY: (id) => `${API_BASE_URL}/journals/${id}/summary`,
-  JOURNAL_SUMMARY_PDF: (id) => `${API_BASE_URL}/journals/${id}/summary/pdf`,
+  JOURNAL_SUMMARY: (id) => `${API_BASE_URL}/journals/${id}/ringkasan`,
+  JOURNAL_SUMMARY_START: (id) => `${API_BASE_URL}/journals/${id}/summarize/start`,
+  JOURNAL_SUMMARY_SYNC: (id) => `${API_BASE_URL}/journals/${id}/summarize`,
+  JOURNAL_SUMMARY_PDF: (id) => `${API_BASE_URL}/journals/${id}/ringkasan/pdf?download=true`,
 
   // Reviews
   REVIEWS: `${API_BASE_URL}/reviews`,
@@ -37,7 +39,7 @@ export const API_ENDPOINTS = {
   SUBSCRIPTION_CANCEL: (id) => `${API_BASE_URL}/subscriptions/${id}/cancel`,
 
   // History & Bookmarks
-  USER_HISTORY: `${API_BASE_URL}/journals/user/history`,
-  USER_BOOKMARKS: `${API_BASE_URL}/journals/user/bookmarks`,
-  BOOKMARK_JOURNAL: (id) => `${API_BASE_URL}/journals/${id}/bookmark`,
+  USER_HISTORY: `${API_BASE_URL}/journals/history`,
+  USER_BOOKMARKS: `${API_BASE_URL}/journals/saved`,
+  BOOKMARK_JOURNAL: (id) => `${API_BASE_URL}/journals/${id}/save`,
 };

@@ -5,7 +5,7 @@ import { API_ENDPOINTS } from '../config/api.config';
 import { request } from './api.client';
 
 export const normalizeJournal = (j) => ({
-  id: j.id,
+  id: j.id ?? j.journalId,
   ownerId: j.ownerId != null ? j.ownerId : (j.user ? j.user.id : null),
   title: j.title || 'Untitled Publication',
   snippet: j.snippet || (j.content ? j.content.slice(0, 160) + '...' : ''),
@@ -64,7 +64,9 @@ export const journalService = {
   },
 
   async downloadJournal(id, fileName = 'journal.pdf') {
-    const blob = await request(API_ENDPOINTS.JOURNAL_DOWNLOAD(id));
+    await request(API_ENDPOINTS.JOURNAL_DOWNLOAD(id), { method: 'POST' }).catch(() => {});
+    const raw = await request(`${API_ENDPOINTS.JOURNAL_FILE(id)}?download=true`);
+    const blob = raw instanceof Blob ? raw : new Blob([raw]);
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -83,14 +85,30 @@ export const journalService = {
   async getAiSummary(id) {
     try {
       const data = await request(API_ENDPOINTS.JOURNAL_SUMMARY(id));
-      return data;
+      if (Array.isArray(data) && data.length > 0) {
+        const latest = data[data.length - 1];
+        return { ...latest, content: latest.isi || latest.content || '' };
+      }
+      if (data && typeof data === 'object') {
+        return { ...data, content: data.isi || data.content || '' };
+      }
+      return null;
     } catch {
       return null;
     }
   },
 
+  async generateAiSummary(id, model) {
+    const data = await request(API_ENDPOINTS.JOURNAL_SUMMARY_SYNC(id), {
+      method: 'POST',
+      body: JSON.stringify(model ? { model } : {})
+    });
+    return { ...data, content: data?.isi || data?.content || '' };
+  },
+
   async downloadSummaryPdf(id, title = 'ringkasan') {
-    const blob = await request(API_ENDPOINTS.JOURNAL_SUMMARY_PDF(id));
+    const raw = await request(API_ENDPOINTS.JOURNAL_SUMMARY_PDF(id));
+    const blob = raw instanceof Blob ? raw : new Blob([raw], { type: 'application/pdf' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -102,15 +120,16 @@ export const journalService = {
     return true;
   },
 
-  async toggleBookmark(id) {
+  async toggleBookmark(id, currentlySaved = false) {
     return await request(API_ENDPOINTS.BOOKMARK_JOURNAL(id), {
-      method: 'POST'
+      method: currentlySaved ? 'DELETE' : 'POST'
     });
   },
 
   async getUserHistory() {
     const data = await request(API_ENDPOINTS.USER_HISTORY);
-    return Array.isArray(data) ? data.map(normalizeJournal) : [];
+    if (!Array.isArray(data)) return [];
+    return data.map((entry) => normalizeJournal(entry.journal || entry));
   },
 
   async getUserBookmarks() {

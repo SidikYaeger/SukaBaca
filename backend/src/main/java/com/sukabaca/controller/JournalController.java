@@ -16,6 +16,7 @@ import com.sukabaca.repository.UserHistoryRepository;
 import com.sukabaca.repository.UserRepository;
 import com.sukabaca.security.TokenService;
 import com.sukabaca.service.AiSummarizationService;
+import com.sukabaca.service.DocumentTextExtractor;
 import com.sukabaca.service.SummaryPdfService;
 import com.sukabaca.service.UserHistoryService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,6 +26,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -40,7 +42,7 @@ import java.util.stream.Collectors;
 public class JournalController {
 
     private static final Path UPLOAD_DIR = Paths.get("uploads").toAbsolutePath().normalize();
-    private static final long MAX_FILE_BYTES = 8L * 1024 * 1024;
+    private static final long MAX_FILE_BYTES = 25L * 1024 * 1024;
     private static final Map<String, String> MEDIA_TYPES = Map.of(
             "pdf", "application/pdf",
             "txt", "text/plain;charset=UTF-8",
@@ -57,6 +59,7 @@ public class JournalController {
     private final SavedJournalRepository savedJournalRepository;
     private final AiSummarizationService aiSummarizationService;
     private final SummaryPdfService summaryPdfService;
+    private final DocumentTextExtractor documentTextExtractor;
 
     public JournalController(JournalRepository journalRepository,
                              RingkasanRepository ringkasanRepository,
@@ -66,7 +69,8 @@ public class JournalController {
                              UserHistoryService userHistoryService,
                              SavedJournalRepository savedJournalRepository,
                              AiSummarizationService aiSummarizationService,
-                             SummaryPdfService summaryPdfService) {
+                             SummaryPdfService summaryPdfService,
+                             DocumentTextExtractor documentTextExtractor) {
         this.journalRepository = journalRepository;
         this.ringkasanRepository = ringkasanRepository;
         this.userRepository = userRepository;
@@ -76,6 +80,7 @@ public class JournalController {
         this.savedJournalRepository = savedJournalRepository;
         this.aiSummarizationService = aiSummarizationService;
         this.summaryPdfService = summaryPdfService;
+        this.documentTextExtractor = documentTextExtractor;
     }
 
     @GetMapping
@@ -102,42 +107,45 @@ public class JournalController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @PostMapping("/upload")
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadJournalMultipart(@RequestParam("title") String title,
+                                                    @RequestParam(value = "author", required = false) String author,
+                                                    @RequestParam(value = "publishDate", required = false) String publishDate,
+                                                    @RequestParam(value = "year", required = false) String year,
+                                                    @RequestParam(value = "category", required = false) String category,
+                                                    @RequestParam(value = "formatFile", required = false) String formatFile,
+                                                    @RequestParam(value = "abstract", required = false) String abstractParam,
+                                                    @RequestParam(value = "content", required = false) String contentParam,
+                                                    @RequestParam(value = "file", required = false) MultipartFile file,
+                                                    HttpServletRequest request) {
+        User user = TokenService.requireUser(request, userRepository);
+        String originalFileName = null;
+        byte[] fileBytes = null;
+        if (file != null && !file.isEmpty()) {
+            originalFileName = file.getOriginalFilename();
+            try {
+                fileBytes = file.getBytes();
+            } catch (IOException e) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Gagal membaca berkas unggahan");
+            }
+        }
+        String effectiveYear = (publishDate != null && !publishDate.isBlank()) ? publishDate : year;
+        return processJournalUpload(
+                user, title, author, category, effectiveYear, formatFile,
+                abstractParam, contentParam, originalFileName, fileBytes
+        );
+    }
+
+    @PostMapping(value = "/upload", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> uploadJournal(@RequestBody Map<String, Object> body, HttpServletRequest request) {
         User user = TokenService.requireUser(request, userRepository);
         if (body == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Body permintaan wajib diisi");
         }
 
-        String title = validateBoundedText(body.get("title"), "Judul", 3, 255);
-        String author = validateBoundedText(
-                body.containsKey("author") && body.get("author") != null && !String.valueOf(body.get("author")).isBlank()
-                        ? body.get("author")
-                        : (user.getName() != null ? user.getName() : user.getUsername()),
-                "Penulis", 2, 150
-        );
-        String category = validateBoundedText(
-                body.containsKey("category") && body.get("category") != null && !String.valueOf(body.get("category")).isBlank()
-                        ? body.get("category")
-                        : "Umum",
-                "Kategori", 2, 100
-        );
-        String abstractText = validateBoundedText(body.get("abstract"), "Abstrak", 30, 10000);
-        String content = body.get("content") != null && !String.valueOf(body.get("content")).isBlank()
-                ? String.valueOf(body.get("content")).trim()
-                : abstractText;
-        String publishDate = parsePublishYear(body.get("publishDate"));
-        String snippet = abstractText.length() > 160 ? abstractText.substring(0, 160) + "..." : abstractText;
-
-        String originalName = body.containsKey("fileName") && body.get("fileName") != null
-                ? Paths.get(String.valueOf(body.get("fileName"))).getFileName().toString().replaceAll("[^a-zA-Z0-9._-]", "_")
-                : null;
-        String ext = extensionOf(originalName);
+        String rawFileName = body.get("fileName") != null ? String.valueOf(body.get("fileName")) : null;
         byte[] fileBytes = null;
-        if (body.containsKey("fileBase64") && body.get("fileBase64") != null && !String.valueOf(body.get("fileBase64")).isBlank()) {
-            if (ext == null) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Format berkas harus .pdf, .docx, .doc, atau .txt");
-            }
+        if (body.get("fileBase64") != null && !String.valueOf(body.get("fileBase64")).isBlank()) {
             try {
                 fileBytes = Base64.getDecoder().decode(String.valueOf(body.get("fileBase64")));
             } catch (IllegalArgumentException e) {
@@ -146,16 +154,106 @@ public class JournalController {
             if (fileBytes.length == 0) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "Berkas tidak boleh kosong");
             }
+        }
+
+        Object rawYear = body.get("publishDate") != null ? body.get("publishDate") : body.get("year");
+        return processJournalUpload(
+                user,
+                body.get("title"),
+                body.get("author"),
+                body.get("category"),
+                rawYear,
+                body.get("formatFile"),
+                body.get("abstract"),
+                body.get("content"),
+                rawFileName,
+                fileBytes
+        );
+    }
+
+    private ResponseEntity<?> processJournalUpload(User user,
+                                                   Object rawTitle,
+                                                   Object rawAuthor,
+                                                   Object rawCategory,
+                                                   Object rawPublishDate,
+                                                   Object rawFormatFile,
+                                                   Object rawAbstract,
+                                                   Object rawContent,
+                                                   String rawFileName,
+                                                   byte[] fileBytes) {
+        String title = validateBoundedText(rawTitle, "Judul", 3, 255);
+        String author = validateBoundedText(
+                rawAuthor != null && !String.valueOf(rawAuthor).isBlank()
+                        ? rawAuthor
+                        : (user.getName() != null ? user.getName() : user.getUsername()),
+                "Penulis", 2, 150
+        );
+        String category = validateBoundedText(
+                rawCategory != null && !String.valueOf(rawCategory).isBlank()
+                        ? rawCategory
+                        : "Umum",
+                "Kategori", 2, 100
+        );
+        String publishDate = parsePublishYear(rawPublishDate);
+
+        String originalName = rawFileName != null && !rawFileName.isBlank()
+                ? Paths.get(rawFileName).getFileName().toString().replaceAll("[^a-zA-Z0-9._-]", "_")
+                : null;
+        String ext = extensionOf(originalName);
+        String extractedText = null;
+
+        if (fileBytes != null) {
+            if (ext == null) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Format berkas harus .pdf, .docx, .doc, atau .txt");
+            }
             if (fileBytes.length > MAX_FILE_BYTES) {
-                throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "Ukuran berkas melebihi batas 8 MB");
+                throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "Ukuran berkas melebihi batas 25 MB");
             }
             validateFileSignature(ext, fileBytes);
+            extractedText = documentTextExtractor.extractTextFromBytes(ext, fileBytes);
+            if (extractedText == null && ("pdf".equals(ext) || "docx".equals(ext))) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Berkas " + ext.toUpperCase() + " rusak atau tidak dapat dibaca");
+            }
         }
+
+        String providedAbstract = rawAbstract != null ? String.valueOf(rawAbstract).trim() : "";
+        String providedContent = rawContent != null ? String.valueOf(rawContent).trim() : "";
+        String cleanExtracted = extractedText != null ? extractedText.trim() : "";
+
+        if (fileBytes == null && providedAbstract.isEmpty() && providedContent.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Unggah berkas naskah (.pdf atau .docx) atau isi teks naskah terlebih dahulu");
+        }
+        if (fileBytes == null && Math.max(providedAbstract.length(), providedContent.length()) < 30) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Abstrak atau teks naskah minimal 30 karakter");
+        }
+
+        String content = !providedContent.isEmpty()
+                ? providedContent
+                : (!providedAbstract.isEmpty()
+                        ? providedAbstract
+                        : (!cleanExtracted.isEmpty()
+                                ? cleanExtracted
+                                : "Dokumen jurnal akademik \"" + title + "\" oleh " + author + "."));
+
+        String abstractCandidate = !providedAbstract.isEmpty()
+                ? providedAbstract
+                : (!providedContent.isEmpty() ? providedContent : content);
+        String abstractText = abstractCandidate.length() > 10000
+                ? abstractCandidate.substring(0, 10000)
+                : abstractCandidate;
+        String snippet = abstractText.length() > 160 ? abstractText.substring(0, 160) + "..." : abstractText;
+
+        String resolvedFormat = ext != null
+                ? ext.toUpperCase()
+                : (rawFormatFile != null && !String.valueOf(rawFormatFile).isBlank()
+                        ? String.valueOf(rawFormatFile).trim().toUpperCase()
+                        : "PDF");
 
         Journal journal = new Journal(user, title, author, snippet, content, publishDate);
         journal.setCategory(category);
         journal.setAbstractText(abstractText);
-        journal.setFormatFile(ext != null ? ext.toUpperCase() : "PDF");
+        journal.setFormatFile(resolvedFormat);
         journalRepository.save(journal);
 
         if (fileBytes != null) {
@@ -176,11 +274,11 @@ public class JournalController {
 
         userHistoryService.recordLatest(user, journal, "UPLOADED");
 
-        return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Jurnal berhasil diunggah",
-                "journalId", journal.getId()
-        ));
+        Map<String, Object> response = new LinkedHashMap<>(toJournalDto(journal, Collections.emptySet()));
+        response.put("status", "success");
+        response.put("message", "Jurnal berhasil diunggah");
+        response.put("journalId", journal.getId());
+        return ResponseEntity.ok(response);
     }
 
     @PutMapping("/{id}")

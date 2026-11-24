@@ -42,7 +42,7 @@ export default function HistoryPage() {
 
   const handleToggleBookmark = async (id) => {
     try {
-      await journalService.toggleBookmark(id);
+      await journalService.toggleBookmark(id, true);
       setSavedJournals((prev) => prev.filter((j) => j.id !== id));
     } catch {
       // Ignore
@@ -138,7 +138,8 @@ export default function HistoryPage() {
               <JournalCard
                 key={journal.id}
                 journal={{ ...journal, isSaved: activeTab === 'saved' ? true : journal.isSaved }}
-                onToggleBookmark={activeTab === 'saved' ? handleToggleBookmark : null}
+                onToggleBookmark={activeTab === 'saved' ? (jid) => handleToggleBookmark(jid) : null}
+                onDownload={(jid, fname) => journalService.downloadJournal(jid, fname)}
               />
             ))}
           </div>

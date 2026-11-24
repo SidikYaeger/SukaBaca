@@ -89,7 +89,12 @@ export async function request(url, options = {}) {
 
     if (contentType.includes('application/json')) {
       responseData = await response.json();
-    } else if (contentType.includes('application/pdf') || contentType.includes('application/octet-stream')) {
+    } else if (
+      contentType.includes('application/pdf') ||
+      contentType.includes('application/octet-stream') ||
+      contentType.includes('application/vnd.openxmlformats-officedocument') ||
+      contentType.includes('application/msword')
+    ) {
       responseData = await response.blob();
     } else {
       responseData = await response.text();
