@@ -67,7 +67,7 @@ export function MemberCardPage() {
     <div>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Kartu Anggota Perpustakaan</h1>
+          <h1 className="page-title">AKUN</h1>
         </div>
       </div>
 
@@ -91,7 +91,7 @@ export function MemberCardPage() {
         <section className="ruled-card library-card" aria-label="Kartu identitas anggota">
           <div className="library-card-banner">
             <h2 className="section-heading">
-              {isAuthenticated ? user.name || user.username : 'Belum Masuk Anggota'}
+              {isAuthenticated ? user.name || user.username : 'Belum Masuk/Daftar'}
             </h2>
 
             {isAuthenticated ? (
