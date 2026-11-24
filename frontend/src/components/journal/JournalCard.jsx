@@ -11,7 +11,7 @@ export default function JournalCard({ journal, onToggleBookmark, onDownload }) {
   };
 
   return (
-    <article className="dokmeh-card p-5 sm:p-6 transition-all border border-[#CBD5E1] hover:border-[#0F172A] hover:shadow-hard group relative bg-[#FFFFFF]">
+    <article className="dokmeh-card p-5 sm:p-6 border border-[#CBD5E1] hover:border-[#0F172A] hover:shadow-hard group relative bg-[#FFFFFF]">
       {/* Top Metadata Row */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 mb-2.5">
         <div className="flex flex-wrap items-center gap-2">

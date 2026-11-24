@@ -1,15 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const apiTarget = process.env.SUKABACA_API_URL || 'http://localhost:8080'
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
+    port: Number(process.env.PORT) || 5173,
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: apiTarget,
         changeOrigin: true
       }
     },
@@ -24,11 +26,11 @@ export default defineConfig({
     ]
   },
   preview: {
-    port: 5173,
+    port: Number(process.env.PORT) || 5173,
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: apiTarget,
         changeOrigin: true
       }
     },

@@ -41,6 +41,15 @@ public class AiSummarizationService {
     private static final String NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
     private static final int MAX_CHUNK_CHARS = 140_000;
     private static final int MIN_RETRY_CHUNK_CHARS = 8_000;
+    private static final String SYSTEM_PROMPT = """
+            Anda adalah asisten riset akademik SukaBaca yang bertugas membuat ringkasan super padat.
+            Aturan ketat:
+            - Gunakan hanya fakta dari dokumen; jangan mengarang data atau menambah opini.
+            - Buang detail minor: abaikan latar belakang umum, tinjauan pustaka/sitasi penelitian terdahulu, rincian tabel mentah, definisi dasar, serta kalimat pembuka/penutup.
+            - Fokus hanya pada: masalah utama, metode inti, hasil/angka paling signifikan, dan kesimpulan.
+            - Tulis dengan kalimat pendek dan langsung ke inti (maksimal 1–2 kalimat per poin).
+            - Jika bernalar secara internal, lakukan dengan sangat singkat dan langsung ke poin utama tanpa mengulang isi teks.
+            - Hindari garis pemisah markdown (--- atau ***), jangan menyalin instruksi batas kata dalam kurung ke hasil akhir, dan jangan tambahkan sapaan atau komentar di luar ringkasan.""";
 
     private final ObjectMapper mapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -185,10 +194,15 @@ public class AiSummarizationService {
                                                SummarizeJob job) {
         try {
             String prompt = totalParts == 1
-                    ? "Ringkas jurnal akademik berjudul \"" + title + "\" secara padat, akurat, dan terstruktur dalam Bahasa Indonesia "
-                      + "(poin utama, metode, dan kesimpulan berdasarkan isi dokumen):\n\n" + text
+                    ? "Ringkas jurnal \"" + title + "\" dalam Bahasa Indonesia menggunakan format ketat berikut (total maksimal 250–300 kata):\n\n"
+                      + "**Inti Jurnal** (maks. 2 kalimat: masalah yang diteliti dan tujuan utama)\n"
+                      + "**Metode** (maks. 2–3 poin singkat: pendekatan, data/sampel, dan teknik utama saja)\n"
+                      + "**Temuan Utama** (maks. 3–5 poin: hanya hasil paling penting beserta angka/metrik kuncinya)\n"
+                      + "**Kesimpulan** (maks. 2 kalimat: jawaban atas tujuan penelitian dan implikasi utama)\n\n"
+                      + "Abaikan detail teknis minor, kutipan penelitian lain, dan daftar pustaka.\n\n" + text
                     : "Ini adalah bagian " + partNum + " dari " + totalParts + " dari jurnal \"" + title + "\". "
-                      + "Ringkas poin-poin inti dan temuan pada bagian ini dalam Bahasa Indonesia:\n\n" + text;
+                      + "Ekstrak HANYA fakta paling krusial pada bagian ini dalam Bahasa Indonesia (maksimal 5 poin, masing-masing 1 kalimat pendek).\n"
+                      + "Abaikan pengantar umum, sitasi peneliti lain, dan detail minor. Jika bagian ini hanya berisi daftar pustaka, ucapan terima kasih, atau tidak memuat metode/temuan penting, cukup tulis: \"Tidak ada poin inti.\"\n\n" + text;
             return callNvidiaApi(prompt, selection, job, "bagian " + partNum + "/" + totalParts);
         } catch (ContextLengthExceededException ex) {
             if (text.length() <= MIN_RETRY_CHUNK_CHARS) {
@@ -201,23 +215,47 @@ public class AiSummarizationService {
             job.updateMessage("Mengoptimalkan bagian " + partNum + " agar ringkasan tetap akurat...");
             String s1 = summarizeChunkWithAutoSplit(firstHalf, title, partNum, totalParts, selection, job);
             String s2 = summarizeChunkWithAutoSplit(secondHalf, title, partNum, totalParts, selection, job);
+            boolean empty1 = isEmptyChunkSummary(s1);
+            boolean empty2 = isEmptyChunkSummary(s2);
+            if (empty1 && empty2) return "Tidak ada poin inti.";
+            if (empty1) return s2;
+            if (empty2) return s1;
             return s1 + "\n\n" + s2;
         }
     }
 
     private String synthesizeParts(String title, List<String> partSummaries, ModelSelection selection, SummarizeJob job) {
-        String combined = String.join("\n\n", partSummaries);
+        List<String> filtered = partSummaries.stream()
+                .filter(part -> !isEmptyChunkSummary(part))
+                .toList();
+        List<String> effectiveParts = filtered.isEmpty() ? partSummaries : filtered;
+        String combined = String.join("\n\n", effectiveParts);
         if (combined.length() > MAX_CHUNK_CHARS) {
             combined = combined.substring(0, MAX_CHUNK_CHARS);
         }
-        String prompt = "Gabungkan ringkasan per bagian berikut dari jurnal \"" + title + "\" menjadi satu "
-                + "ringkasan akademik yang kohesif dan terstruktur dalam Bahasa Indonesia "
-                + "(Ringkasan Eksekutif, Metodologi, Temuan Utama, dan Kesimpulan):\n\n" + combined;
+        String prompt = "Gabungkan poin-poin per bagian berikut dari jurnal \"" + title + "\" menjadi SATU ringkasan akademik yang sangat padat dalam Bahasa Indonesia (total maksimal 300–350 kata). Hapus informasi yang berulang dan sisakan hanya poin paling berdampak.\n\n"
+                + "Gunakan format ketat ini:\n"
+                + "**Ringkasan Eksekutif** (maks. 2–3 kalimat)\n"
+                + "**Metodologi** (maks. 3 poin singkat)\n"
+                + "**Temuan Utama** (maks. 4–5 poin terpenting saja, sertakan angka kunci jika ada)\n"
+                + "**Kesimpulan** (maks. 2 kalimat)\n\n" + combined;
         try {
             return callNvidiaApi(prompt, selection, job, "sintesis akhir");
         } catch (ContextLengthExceededException e) {
             return combined;
         }
+    }
+
+    private static boolean isEmptyChunkSummary(String raw) {
+        if (raw == null) {
+            return true;
+        }
+        String strippedHeader = raw.trim().replaceFirst("^\\[Bagian\\s+\\d+/\\d+]\\s*", "");
+        String normalized = strippedHeader
+                .replaceAll("^[\"'“‘*\\s]+", "")
+                .replaceAll("[.!?;:\"'”’*\\s]+$", "")
+                .trim();
+        return normalized.isEmpty() || normalized.equalsIgnoreCase("Tidak ada poin inti");
     }
 
     private String callNvidiaApi(String userPrompt, ModelSelection selection, SummarizeJob job, String stageLabel) {
@@ -231,11 +269,10 @@ public class AiSummarizationService {
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("model", selection.modelId());
             body.put("messages", List.of(
-                    Map.of("role", "system", "content",
-                            "Anda adalah asisten riset akademik SukaBaca. Ringkas hanya fakta dari dokumen secara akurat, padat, dan terstruktur tanpa mengarang data. Hindari garis pemisah markdown seperti --- atau ***."),
+                    Map.of("role", "system", "content", SYSTEM_PROMPT),
                     Map.of("role", "user", "content", userPrompt)
             ));
-            body.put("temperature", selection.isPro() ? 0.6 : 0.3);
+            body.put("temperature", selection.isPro() ? 0.25 : 0.3);
             body.put("top_p", 0.95);
             body.put("max_tokens", selection.isPro() ? 16384 : 1024);
             body.put("stream", true);

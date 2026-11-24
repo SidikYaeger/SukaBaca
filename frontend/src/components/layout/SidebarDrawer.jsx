@@ -1,16 +1,27 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { X, History, Home, Upload, Search, LogOut, Crown, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
+import { useAnimatedPresence } from '../../hooks/useAnimatedPresence';
 
 export default function SidebarDrawer({ isOpen, onClose }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, user, logout } = useAuth();
   const { subscription, remainingQuota } = useSubscription();
+  const { isMounted, isExiting } = useAnimatedPresence(isOpen, 210);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isMounted) return null;
 
   const navItems = [
     { label: 'Home', path: '/home', icon: Home },
@@ -24,16 +35,22 @@ export default function SidebarDrawer({ isOpen, onClose }) {
     onClose();
   };
 
+  const closingAttr = isExiting ? { 'data-closing': '' } : {};
+
   return (
     <div className="fixed inset-0 z-50 flex">
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity"
+        className="dokmeh-drawer-backdrop fixed inset-0 bg-slate-900/40 backdrop-blur-xs"
+        {...closingAttr}
         onClick={onClose}
       />
 
       {/* Sharp Drawer Panel */}
-      <aside className="relative w-72 bg-[#FFFFFF] shadow-2xl h-full flex flex-col justify-between p-6 z-10 border-r-2 border-[#0F172A]">
+      <aside
+        className="dokmeh-drawer-panel relative w-72 bg-[#FFFFFF] shadow-2xl h-full flex flex-col justify-between p-6 z-10 border-r-2 border-[#0F172A]"
+        {...closingAttr}
+      >
         
         {/* Top Header */}
         <div className="space-y-6">

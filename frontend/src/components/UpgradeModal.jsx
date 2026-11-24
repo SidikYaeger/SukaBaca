@@ -1,6 +1,26 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { X, Check, Crown, Sparkles, CheckCircle2, BookOpen } from 'lucide-react';
 import { useSubscription } from '../context/SubscriptionContext';
+
+let cachedDisplayTransitionSupport;
+function canTransitionDisplay() {
+  if (cachedDisplayTransitionSupport !== undefined) return cachedDisplayTransitionSupport;
+  if (typeof window === 'undefined' || !window.CSS?.supports?.('transition-behavior', 'allow-discrete') || !document.body) {
+    return false;
+  }
+  const probe = document.createElement('div');
+  probe.style.cssText = 'transition: display 1s allow-discrete !important; display: block;';
+  document.body.appendChild(probe);
+  getComputedStyle(probe).display;
+  probe.style.display = 'none';
+  cachedDisplayTransitionSupport = getComputedStyle(probe).display === 'block';
+  probe.remove();
+  return cachedDisplayTransitionSupport;
+}
+
+function supportsTopLayerExit() {
+  return typeof window !== 'undefined' && window.CSS?.supports?.('overlay', 'auto') && canTransitionDisplay();
+}
 
 const FREE_FEATURES = [
   'Akses pencarian repositori publikasi ilmiah',
@@ -32,11 +52,33 @@ export default function UpgradeModal({ onClose }) {
     onCloseRef.current = onClose;
   }, [onClose]);
 
+  const closeAnimated = useCallback(async () => {
+    const dialog = dialogRef.current;
+    if (!dialog || !dialog.open) return;
+
+    if (!supportsTopLayerExit()) {
+      if (dialog.hasAttribute('data-closing')) return;
+      dialog.setAttribute('data-closing', '');
+      const animations = dialog.getAnimations({ subtree: true });
+      if (animations.length > 0) {
+        await Promise.race([
+          Promise.allSettled(animations.map((a) => a.finished)),
+          new Promise((r) => setTimeout(r, 2000)),
+        ]);
+      }
+      if (!dialog.hasAttribute('data-closing')) return;
+      dialog.removeAttribute('data-closing');
+    }
+
+    dialog.close();
+  }, []);
+
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
 
     let active = true;
+    dialog.removeAttribute('data-closing');
     if (!dialog.open) {
       dialog.showModal();
     }
@@ -45,7 +87,12 @@ export default function UpgradeModal({ onClose }) {
       if (!active || dialog.open) return;
       onCloseRef.current?.();
     };
+    const handleCancel = (event) => {
+      event.preventDefault();
+      closeAnimated();
+    };
     dialog.addEventListener('close', handleNativeClose);
+    dialog.addEventListener('cancel', handleCancel);
 
     // Fallback light-dismiss for browsers lacking <dialog closedby="any">
     let removeFallback = null;
@@ -60,7 +107,7 @@ export default function UpgradeModal({ onClose }) {
       };
       const onPointerUp = (e) => {
         if (pressedOutside && isOutside(e)) {
-          dialog.close();
+          closeAnimated();
         }
       };
       dialog.addEventListener('pointerdown', onPointerDown);
@@ -74,9 +121,10 @@ export default function UpgradeModal({ onClose }) {
     return () => {
       active = false;
       dialog.removeEventListener('close', handleNativeClose);
+      dialog.removeEventListener('cancel', handleCancel);
       removeFallback?.();
     };
-  }, []);
+  }, [closeAnimated]);
 
   const handleUpgrade = async () => {
     setLoading(true);
@@ -89,7 +137,7 @@ export default function UpgradeModal({ onClose }) {
       }
       setSuccessMsg('Paket Ultra Academic Pro berhasil diaktifkan!');
       setTimeout(() => {
-        dialogRef.current?.close();
+        closeAnimated();
       }, 1200);
     } catch (err) {
       setErrorMsg(err.message || 'Gagal memulai pembayaran Stripe.');
@@ -104,7 +152,7 @@ export default function UpgradeModal({ onClose }) {
       await cancelPlan();
       setSuccessMsg('Langganan telah dibatalkan kembali ke Free Access.');
       setTimeout(() => {
-        dialogRef.current?.close();
+        closeAnimated();
       }, 1200);
     } catch (err) {
       setErrorMsg(err.message || 'Gagal membatalkan paket.');
@@ -124,7 +172,7 @@ export default function UpgradeModal({ onClose }) {
         {/* Close Button */}
         <button
           type="button"
-          onClick={() => dialogRef.current?.close()}
+          onClick={closeAnimated}
           className="absolute top-4 right-4 sm:top-5 sm:right-5 p-1.5 border border-[#CBD5E1] bg-[#FFFFFF] text-[#64748B] hover:text-[#0F172A] hover:border-[#0F172A] cursor-pointer transition-colors"
           title="Tutup Modal"
           aria-label="Tutup Modal"

@@ -61,22 +61,24 @@ export default function HomePage() {
         <section className="text-center max-w-3xl mx-auto space-y-6">
           
           {/* High-Contrast Editorial Headline with Typing Animation */}
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[#0F172A] tracking-tight leading-[1.15]">
-            Discover{' '}
-            <span className="text-[#0593C6] inline-block min-w-[200px] text-left sm:text-center">
-              {displayedText}
-              <span className="animate-pulse font-normal text-[#0593C6]">|</span>
-            </span>
-            .
-          </h1>
+          <div className="reveal-item reveal-delay-1 space-y-6">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[#0F172A] tracking-tight leading-[1.15]">
+              Discover{' '}
+              <span className="text-[#0593C6] inline-block min-w-[200px] text-left sm:text-center">
+                {displayedText}
+                <span className="animate-pulse font-normal text-[#0593C6]">|</span>
+              </span>
+              .
+            </h1>
 
-          {/* Subtitle */}
-          <p className="text-base sm:text-lg text-[#64748B] leading-relaxed max-w-2xl mx-auto font-normal">
-            Akses publikasi ilmiah dan ringkasan berbasis AI.
-          </p>
+            {/* Subtitle */}
+            <p className="text-base sm:text-lg text-[#64748B] leading-relaxed max-w-2xl mx-auto font-normal">
+              Akses publikasi ilmiah dan ringkasan berbasis AI.
+            </p>
+          </div>
 
           {/* Centered Unified Search Bar */}
-          <form onSubmit={handleSearchSubmit} className="pt-2 max-w-2xl mx-auto">
+          <form onSubmit={handleSearchSubmit} className="reveal-item reveal-delay-2 pt-2 max-w-2xl mx-auto">
             <div className="dokmeh-search-container">
               <SearchIcon size={18} className="text-[#64748B] shrink-0 mr-1.5" />
               <input
@@ -96,7 +98,7 @@ export default function HomePage() {
           </form>
 
           {/* Centered Academic Topics Pills */}
-          <div className="pt-4 space-y-2.5">
+          <div className="reveal-item reveal-delay-3 pt-4 space-y-2.5">
             <span className="text-xs font-bold text-[#0F172A] uppercase tracking-wider block font-mono">
               Topik Riset Terpopuler
             </span>
@@ -116,7 +118,7 @@ export default function HomePage() {
         </section>
 
         {/* Feature Cards Section (No Boxed Icons) */}
-        <section className="space-y-8 pt-4">
+        <section className="reveal-item reveal-delay-4 space-y-8 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="p-6 bg-[#F8FAFC] border border-[#CBD5E1] shadow-hard-sm space-y-2.5">
               <h3 className="text-base font-bold text-[#0F172A]">Smart Filter & Discovery</h3>
