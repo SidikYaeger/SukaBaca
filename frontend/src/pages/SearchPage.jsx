@@ -6,7 +6,9 @@ import {
   Bookmark,
   RotateCcw,
   AlertCircle,
-  SlidersHorizontal
+  SlidersHorizontal,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import Header from '../components/layout/Header';
 import SidebarDrawer from '../components/layout/SidebarDrawer';
@@ -16,6 +18,8 @@ import { Skeleton } from '../components/common/UIPrimitives';
 import { journalService } from '../services/journal.service';
 import { SORT_OPTIONS } from '../config/app.config';
 import { useAuth } from '../context/AuthContext';
+
+const ITEMS_PER_PAGE = 20;
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -31,6 +35,7 @@ export default function SearchPage() {
   const [searchError, setSearchError] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Filters state
   const [pubDateRange, setPubDateRange] = useState('');
@@ -115,6 +120,7 @@ export default function SearchPage() {
       }
 
       setJournals(list);
+      setCurrentPage(1);
       setYearCounts(result.yearCounts || {});
     } catch (err) {
       setSearchError(err.message || 'Gagal memuat hasil pencarian jurnal.');
@@ -183,6 +189,26 @@ export default function SearchPage() {
     } catch {
       // Ignore
     }
+  };
+
+  const totalPages = Math.max(1, Math.ceil(journals.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * ITEMS_PER_PAGE;
+  const paginatedJournals = journals.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const goToPage = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const getPageNumbers = () => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages = [1];
+    if (safePage > 3) pages.push('...');
+    for (let i = Math.max(2, safePage - 1); i <= Math.min(totalPages - 1, safePage + 1); i++) pages.push(i);
+    if (safePage < totalPages - 2) pages.push('...');
+    pages.push(totalPages);
+    return pages;
   };
 
   return (
@@ -290,7 +316,12 @@ export default function SearchPage() {
             <div className="flex items-center justify-between p-3 bg-[#F8FAFC] border border-[#CBD5E1] text-xs">
               <span className="text-[#64748B]">
                 Menampilkan{' '}
-                <strong className="text-[#0F172A] font-mono tabular-nums">{journals.length}</strong> publikasi
+                <strong className="text-[#0F172A] font-mono tabular-nums">
+                  {journals.length > 0
+                    ? `${startIndex + 1}–${Math.min(startIndex + ITEMS_PER_PAGE, journals.length)} dari ${journals.length}`
+                    : 0}
+                </strong>{' '}
+                publikasi
               </span>
 
               {isAuthenticated && (
@@ -373,7 +404,7 @@ export default function SearchPage() {
             ) : (
               /* Populated Cards List */
               <div className="space-y-4">
-                {journals.map((journal) => (
+                {paginatedJournals.map((journal) => (
                   <JournalCard
                     key={journal.id}
                     journal={journal}
@@ -381,6 +412,63 @@ export default function SearchPage() {
                     onDownload={handleDownloadFile}
                   />
                 ))}
+
+                {totalPages > 1 && (
+                  <nav
+                    aria-label="Pagination"
+                    className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-[#CBD5E1]"
+                  >
+                    <span className="text-xs text-[#64748B] font-mono">
+                      Halaman <strong className="text-[#0F172A]">{safePage}</strong> / {totalPages}
+                    </span>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => goToPage(safePage - 1)}
+                        disabled={safePage === 1}
+                        className="dokmeh-btn-secondary !py-1.5 !px-2.5 text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeft size={14} />
+                        <span>Prev</span>
+                      </button>
+
+                      {getPageNumbers().map((item, idx) =>
+                        item === '...' ? (
+                          <span
+                            key={`ellipsis-${idx}`}
+                            className="px-2 py-1 text-xs font-mono text-[#64748B]"
+                          >
+                            ...
+                          </span>
+                        ) : (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => goToPage(item)}
+                            className={`px-3 py-1.5 text-xs font-mono font-semibold border transition-all ${
+                              item === safePage
+                                ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-hard-sm'
+                                : 'bg-[#FFFFFF] text-[#334155] border-[#CBD5E1] hover:border-[#0F172A]'
+                            }`}
+                          >
+                            {item}
+                          </button>
+                        )
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => goToPage(safePage + 1)}
+                        disabled={safePage === totalPages}
+                        className="dokmeh-btn-secondary !py-1.5 !px-2.5 text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <span>Next</span>
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </nav>
+                )}
               </div>
             )}
 
