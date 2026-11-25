@@ -22,6 +22,7 @@ export const API_ENDPOINTS = {
   // AI Summaries
   JOURNAL_SUMMARY: (id) => `${API_BASE_URL}/journals/${id}/ringkasan`,
   JOURNAL_SUMMARY_START: (id) => `${API_BASE_URL}/journals/${id}/summarize/start`,
+  JOURNAL_SUMMARY_JOB: (jobId) => `${API_BASE_URL}/journals/summarize-jobs/${jobId}`,
   JOURNAL_SUMMARY_SYNC: (id) => `${API_BASE_URL}/journals/${id}/summarize`,
   JOURNAL_SUMMARY_PDF: (id) => `${API_BASE_URL}/journals/${id}/ringkasan/pdf?download=true`,
 

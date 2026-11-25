@@ -20,6 +20,7 @@ public class SmartSearch {
     private Integer maxYear;
     private Boolean hasAbstract;
     private Boolean hasFile;
+    private Double minRating;
 
     public SmartSearch() {}
 
@@ -193,6 +194,9 @@ public class SmartSearch {
 
     public Boolean getHasFile() { return hasFile; }
     public void setHasFile(Boolean hasFile) { this.hasFile = hasFile; }
+
+    public Double getMinRating() { return minRating; }
+    public void setMinRating(Double minRating) { this.minRating = minRating; }
 
     // --- Getters & Setters ---
 

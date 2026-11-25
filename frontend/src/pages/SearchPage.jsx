@@ -12,6 +12,7 @@ import Header from '../components/layout/Header';
 import SidebarDrawer from '../components/layout/SidebarDrawer';
 import JournalCard from '../components/journal/JournalCard';
 import JournalFilterSidebar from '../components/journal/JournalFilterSidebar';
+import RatingSummaryCard from '../components/journal/RatingSummaryCard';
 import { Skeleton } from '../components/common/UIPrimitives';
 import { journalService } from '../services/journal.service';
 import { SORT_OPTIONS } from '../config/app.config';
@@ -27,6 +28,7 @@ export default function SearchPage() {
   const [activeQuery, setActiveQuery] = useState(initialQuery);
   const [journals, setJournals] = useState([]);
   const [yearCounts, setYearCounts] = useState({});
+  const [ratingSummary, setRatingSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchError, setSearchError] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -40,6 +42,7 @@ export default function SearchPage() {
   const [onlyWithFile, setOnlyWithFile] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [selectedFormat, setSelectedFormat] = useState('');
+  const [minRating, setMinRating] = useState('');
   const [sortOption, setSortOption] = useState('views_desc');
   const [savedOnly, setSavedOnly] = useState(false);
 
@@ -66,6 +69,7 @@ export default function SearchPage() {
     setOnlyWithFile(false);
     setSelectedCategory('');
     setSelectedFormat('');
+    setMinRating('');
     setSavedOnly(false);
     syncSearchParams(activeQuery.trim(), '');
   };
@@ -100,6 +104,7 @@ export default function SearchPage() {
         maxYear,
         hasAbstract: onlyAbstract || null,
         hasFile: onlyWithFile || null,
+        minRating: minRating ? Number(minRating) : null,
         sortBy: sortBy || 'views',
         sortOrder: (sortDir || 'desc').toUpperCase()
       };
@@ -113,9 +118,11 @@ export default function SearchPage() {
 
       setJournals(list);
       setYearCounts(result.yearCounts || {});
+      setRatingSummary(result.ratingSummary || null);
     } catch (err) {
       setSearchError(err.message || 'Gagal memuat hasil pencarian jurnal.');
       setJournals([]);
+      setRatingSummary(null);
     } finally {
       setLoading(false);
     }
@@ -127,6 +134,7 @@ export default function SearchPage() {
     customMaxYear,
     selectedCategory,
     selectedFormat,
+    minRating,
     onlyAbstract,
     onlyWithFile,
     savedOnly,
@@ -272,6 +280,8 @@ export default function SearchPage() {
               setSelectedCategory={handleCategoryChange}
               selectedFormat={selectedFormat}
               setSelectedFormat={setSelectedFormat}
+              minRating={minRating}
+              setMinRating={setMinRating}
               yearCounts={yearCounts}
               onResetFilters={handleResetFilters}
             />
@@ -302,6 +312,18 @@ export default function SearchPage() {
                 </button>
               )}
             </div>
+
+            {/* Rating Summary for Current Search Results */}
+            {!loading && !searchError && (journals.length > 0 || minRating) && (
+              <RatingSummaryCard
+                journals={journals}
+                serverSummary={ratingSummary}
+                useClientFallback={savedOnly && isAuthenticated}
+                minRating={minRating}
+                onSelectMinRating={setMinRating}
+                onOpenJournal={(id) => navigate(`/article/${id}`)}
+              />
+            )}
 
             {/* Error Message */}
             {searchError && (

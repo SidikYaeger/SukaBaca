@@ -42,6 +42,31 @@ export const SORT_OPTIONS = [
   { value: 'title_asc', label: 'Title (A–Z)' }
 ];
 
+export const RATING_FILTER_OPTIONS = [
+  { value: '', label: 'Semua Rating' },
+  { value: '4', label: '4★ ke atas' },
+  { value: '3', label: '3★ ke atas' },
+  { value: '2', label: '2★ ke atas' },
+  { value: '1', label: '1★ ke atas' }
+];
+
+export const AI_MODELS = [
+  {
+    id: 'Basic SukaBaca AI',
+    label: 'Basic SukaBaca AI',
+    badge: 'FREE & PRO',
+    tier: 'free',
+    description: 'Ringkasan cepat & padat untuk ekstraksi inti jurnal harian.'
+  },
+  {
+    id: 'Pro SukaBaca AI',
+    label: 'Pro SukaBaca AI',
+    badge: 'PRO',
+    tier: 'pro',
+    description: 'Penalaran mendalam untuk metodologi, metrik, dan sintesis lanjutan.'
+  }
+];
+
 export const SUBSCRIPTION_PLANS = {
   FREE: {
     id: 'free',

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, FileText } from 'lucide-react';
+import { ArrowLeft, Download, FileText, Sparkles, X } from 'lucide-react';
 import Header from '../components/layout/Header';
+import AiSummarizerPanel from '../components/journal/AiSummarizerPanel';
 import { Skeleton } from '../components/common/UIPrimitives';
 import { journalService } from '../services/journal.service';
 
@@ -10,6 +11,7 @@ export default function JournalViewPage() {
   const navigate = useNavigate();
   const [journal, setJournal] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showSummarizer, setShowSummarizer] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -55,19 +57,33 @@ export default function JournalViewPage() {
             </div>
           </div>
 
-          {journal?.fileName && (
+          <div className="flex items-center gap-2 self-end sm:self-auto">
             <button
-              onClick={() => journalService.downloadJournal(journal.id, journal.fileName)}
-              className="dokmeh-btn-primary !py-1.5 !px-4 text-xs font-semibold flex items-center gap-1.5 self-end sm:self-auto"
+              type="button"
+              onClick={() => setShowSummarizer((prev) => !prev)}
+              className={`${
+                showSummarizer ? 'dokmeh-btn-primary' : 'dokmeh-btn-secondary'
+              } !py-1.5 !px-3.5 text-xs font-semibold flex items-center gap-1.5`}
             >
-              <Download size={14} />
-              <span>Unduh Berkas</span>
+              {showSummarizer ? <X size={14} /> : <Sparkles size={14} />}
+              <span>{showSummarizer ? 'Tutup AI Summarizer' : 'AI Summarizer'}</span>
             </button>
-          )}
+
+            {journal?.fileName && (
+              <button
+                onClick={() => journalService.downloadJournal(journal.id, journal.fileName)}
+                className="dokmeh-btn-primary !py-1.5 !px-4 text-xs font-semibold flex items-center gap-1.5"
+              >
+                <Download size={14} />
+                <span>Unduh Berkas</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Integrated Viewer / Embed Frame with Dynamic Viewport Height */}
-        <div className="flex-1 min-h-[calc(100vh-230px)] bg-[#FFFFFF] border-2 border-[#0F172A] shadow-hard flex flex-col overflow-hidden">
+        {/* Integrated Viewer / Embed Frame with Optional AI Summarizer Side Panel */}
+        <div className={`flex-1 grid grid-cols-1 ${showSummarizer ? 'lg:grid-cols-12 gap-4' : ''}`}>
+          <div className={`${showSummarizer ? 'lg:col-span-7' : ''} min-h-[calc(100vh-230px)] bg-[#FFFFFF] border-2 border-[#0F172A] shadow-hard flex flex-col overflow-hidden`}>
           {loading ? (
             <div className="flex-1 p-8 space-y-4">
               <Skeleton className="w-full h-8" />
@@ -98,6 +114,17 @@ export default function JournalViewPage() {
               >
                 Buka Halaman Detail
               </button>
+            </div>
+          )}
+          </div>
+
+          {showSummarizer && (
+            <div className="lg:col-span-5 max-h-[calc(100vh-230px)] overflow-y-auto">
+              <AiSummarizerPanel
+                journalId={id}
+                journalTitle={journal?.title || 'ringkasan'}
+                compact
+              />
             </div>
           )}
         </div>

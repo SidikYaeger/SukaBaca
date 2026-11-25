@@ -1,5 +1,5 @@
 import React from 'react';
-import { JOURNAL_CATEGORIES, FILE_FORMATS } from '../../config/app.config';
+import { JOURNAL_CATEGORIES, FILE_FORMATS, RATING_FILTER_OPTIONS } from '../../config/app.config';
 
 export default function JournalFilterSidebar({
   pubDateRange,
@@ -16,6 +16,8 @@ export default function JournalFilterSidebar({
   setSelectedCategory,
   selectedFormat,
   setSelectedFormat,
+  minRating,
+  setMinRating,
   yearCounts = {},
   onResetFilters,
 }) {
@@ -183,6 +185,28 @@ export default function JournalFilterSidebar({
           ))}
         </div>
       </div>
+
+      {/* 6. Minimum Rating Filter */}
+      {setMinRating && (
+        <div className="border-t border-[#E2E8F0] pt-4 space-y-2">
+          <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider font-mono">
+            Rating Minimum
+          </h4>
+          <div className="space-y-1.5">
+            {RATING_FILTER_OPTIONS.map((opt) => (
+              <label key={opt.value || 'all'} className="dokmeh-radio-label">
+                <input
+                  type="radio"
+                  name="min_rating"
+                  checked={String(minRating || '') === opt.value}
+                  onChange={() => setMinRating(opt.value)}
+                />
+                <span>{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 6. Results By Year Counts */}
       {Object.keys(yearCounts).length > 0 && (

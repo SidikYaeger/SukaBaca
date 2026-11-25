@@ -454,9 +454,19 @@ public class JournalController {
                 : searchCriteria.applyFilterAndSort(allJournals);
 
         Set<Long> savedIds = resolveSavedIds(request);
-        List<Map<String, Object>> dtos = filtered.stream()
-                .map(j -> toJournalDto(j, savedIds))
-                .collect(Collectors.toList());
+        Map<Long, List<Review>> reviewsByJournal = new HashMap<>();
+        List<Map<String, Object>> dtos = new ArrayList<>();
+        Double minRating = searchCriteria != null ? searchCriteria.getMinRating() : null;
+
+        for (Journal j : filtered) {
+            List<Review> reviews = reviewRepository.findByJournalId(j.getId());
+            Double avgRating = Review.hitungRataRataRating(reviews);
+            if (minRating != null && minRating > 0 && avgRating < minRating) {
+                continue;
+            }
+            reviewsByJournal.put(j.getId(), reviews);
+            dtos.add(toJournalDto(j, savedIds, reviews, avgRating));
+        }
 
         if (searchCriteria != null && "rating".equalsIgnoreCase(searchCriteria.getSortBy())) {
             boolean asc = "ASC".equalsIgnoreCase(searchCriteria.getSortOrder());
@@ -476,10 +486,13 @@ public class JournalController {
             }
         }
 
+        Map<String, Object> ratingSummary = buildRatingSummary(dtos, reviewsByJournal);
+
         return ResponseEntity.ok(Map.of(
                 "total", dtos.size(),
                 "journals", dtos,
-                "yearCounts", yearCounts
+                "yearCounts", yearCounts,
+                "ratingSummary", ratingSummary
         ));
     }
 
@@ -604,9 +617,64 @@ public class JournalController {
                 .collect(Collectors.toSet());
     }
 
+    private Map<String, Object> buildRatingSummary(List<Map<String, Object>> dtos,
+                                                   Map<Long, List<Review>> reviewsByJournal) {
+        Map<String, Long> distribution = new LinkedHashMap<>();
+        for (int star = 5; star >= 1; star--) {
+            distribution.put(String.valueOf(star), 0L);
+        }
+
+        long totalReviews = 0L;
+        long totalScore = 0L;
+        int ratedJournalsCount = 0;
+
+        for (Map<String, Object> dto : dtos) {
+            Long journalId = ((Number) dto.get("id")).longValue();
+            List<Review> reviews = reviewsByJournal.getOrDefault(journalId, Collections.emptyList());
+            if (!reviews.isEmpty()) {
+                ratedJournalsCount++;
+            }
+            for (Review review : reviews) {
+                if (review.getRating() != null) {
+                    int clamped = Math.max(1, Math.min(5, review.getRating()));
+                    distribution.merge(String.valueOf(clamped), 1L, Long::sum);
+                    totalScore += clamped;
+                    totalReviews++;
+                }
+            }
+        }
+
+        double averageRating = totalReviews == 0L
+                ? 0.0
+                : Math.round(((double) totalScore / totalReviews) * 10.0) / 10.0;
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("averageRating", averageRating);
+        summary.put("totalReviews", totalReviews);
+        summary.put("ratedJournalsCount", ratedJournalsCount);
+        summary.put("totalJournals", dtos.size());
+        summary.put("distribution", distribution);
+        return summary;
+    }
+
     private Map<String, Object> toJournalDto(Journal j, Set<Long> savedIds) {
         List<Review> reviews = reviewRepository.findByJournalId(j.getId());
         Double avgRating = Review.hitungRataRataRating(reviews);
+        return toJournalDto(j, savedIds, reviews, avgRating);
+    }
+
+    private Map<String, Object> toJournalDto(Journal j, Set<Long> savedIds, List<Review> reviews, Double avgRating) {
+        Map<String, Long> ratingDistribution = new LinkedHashMap<>();
+        for (int star = 5; star >= 1; star--) {
+            ratingDistribution.put(String.valueOf(star), 0L);
+        }
+        for (Review r : reviews) {
+            if (r.getRating() != null) {
+                int clamped = Math.max(1, Math.min(5, r.getRating()));
+                ratingDistribution.merge(String.valueOf(clamped), 1L, Long::sum);
+            }
+        }
+
         Map<String, Object> dto = new LinkedHashMap<>();
         dto.put("id", j.getId());
         dto.put("user", j.getUser());
@@ -625,6 +693,7 @@ public class JournalController {
         dto.put("createdAt", j.getCreatedAt() != null ? j.getCreatedAt().toString() : null);
         dto.put("averageRating", avgRating);
         dto.put("reviewCount", reviews.size());
+        dto.put("ratingDistribution", ratingDistribution);
         dto.put("isSaved", savedIds.contains(j.getId()));
         return dto;
     }

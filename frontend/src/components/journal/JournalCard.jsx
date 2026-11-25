@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, Download, Bookmark } from 'lucide-react';
+import { Eye, Download, Bookmark, Star } from 'lucide-react';
 import { Badge } from '../common/UIPrimitives';
 
 export default function JournalCard({ journal, onToggleBookmark, onDownload }) {
@@ -87,6 +87,26 @@ export default function JournalCard({ journal, onToggleBookmark, onDownload }) {
         </div>
 
         <div className="flex items-center gap-4 text-[#64748B]">
+          <span
+            className={`font-mono text-xs flex items-center gap-1 tabular-nums ${
+              journal.reviewCount > 0 ? 'text-amber-600 font-semibold' : 'text-[#94A3B8]'
+            }`}
+            title={
+              journal.reviewCount > 0
+                ? `Rata-rata ${Number(journal.rating).toFixed(1)} dari ${journal.reviewCount} ulasan`
+                : 'Belum ada ulasan'
+            }
+          >
+            <Star
+              size={13}
+              className={journal.reviewCount > 0 ? 'text-amber-500' : 'text-[#94A3B8]'}
+              fill={journal.reviewCount > 0 ? 'currentColor' : 'none'}
+            />
+            {journal.reviewCount > 0
+              ? `${Number(journal.rating).toFixed(1)} (${journal.reviewCount})`
+              : '0.0'}
+          </span>
+
           <span className="font-mono text-xs flex items-center gap-1 text-[#0F172A] tabular-nums">
             <Eye size={13} className="text-[#64748B]" />
             {journal.views} views

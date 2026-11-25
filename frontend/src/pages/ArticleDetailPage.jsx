@@ -5,13 +5,12 @@ import {
   Download,
   Eye,
   ArrowLeft,
-  Sparkles,
   FileText,
-  Bookmark,
-  FileDown
+  Bookmark
 } from 'lucide-react';
 import Header from '../components/layout/Header';
 import ReviewSection from '../components/journal/ReviewSection';
+import AiSummarizerPanel from '../components/journal/AiSummarizerPanel';
 import { Badge, Skeleton } from '../components/common/UIPrimitives';
 import { journalService } from '../services/journal.service';
 import { reviewService } from '../services/review.service';
@@ -24,10 +23,9 @@ export default function ArticleDetailPage() {
 
   const [journal, setJournal] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState(null);
+  const [summaries, setSummaries] = useState([]);
   const [reviewsData, setReviewsData] = useState({ reviews: [], averageRating: 0, totalReviews: 0 });
   const [downloading, setDownloading] = useState(false);
-  const [downloadingSummary, setDownloadingSummary] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -40,12 +38,12 @@ export default function ArticleDetailPage() {
         setJournal(item);
 
         if (item) {
-          const [aiSum, revs] = await Promise.all([
-            journalService.getAiSummary(id),
+          const [aiSums, revs] = await Promise.all([
+            journalService.getAiSummaries(id),
             reviewService.getReviewsByJournal(id)
           ]);
           if (!isMounted) return;
-          setSummary(aiSum);
+          setSummaries(aiSums);
           setReviewsData(revs);
         }
       } catch {
@@ -82,17 +80,6 @@ export default function ArticleDetailPage() {
       // Ignore
     } finally {
       setDownloading(false);
-    }
-  };
-
-  const handleDownloadSummaryPdf = async () => {
-    setDownloadingSummary(true);
-    try {
-      await journalService.downloadSummaryPdf(journal.id, journal.title);
-    } catch {
-      // Ignore
-    } finally {
-      setDownloadingSummary(false);
     }
   };
 
@@ -258,37 +245,12 @@ export default function ArticleDetailPage() {
 
         </article>
 
-        {/* AI Semantic Summary Card */}
-        <section className="p-6 sm:p-8 space-y-4 bg-[#F8FAFC] border border-[#CBD5E1] shadow-hard-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#E2E8F0] gap-3">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-[#FFFFFF] border border-[#0F172A] text-[#0593C6]">
-                <Sparkles size={18} />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-[#0F172A]">
-                  Ringkasan Eksekutif Saintifik (AI Generated)
-                </h3>
-                <span className="text-xs text-[#64748B]">
-                  Disintesis secara otomatis menggunakan model inferensi akademik NVIDIA.
-                </span>
-              </div>
-            </div>
-
-            <button
-              onClick={handleDownloadSummaryPdf}
-              disabled={downloadingSummary}
-              className="dokmeh-btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5 self-start sm:self-auto"
-            >
-              <FileDown size={14} />
-              <span>{downloadingSummary ? 'Mengekspor...' : 'Unduh Ringkasan PDF'}</span>
-            </button>
-          </div>
-
-          <div className="text-xs sm:text-sm text-[#334155] leading-relaxed whitespace-pre-line bg-[#FFFFFF] p-5 border border-[#CBD5E1]">
-            {summary?.content || summary?.ringkasan || 'Ringkasan AI belum di-generate atau sedang diproses. Anda dapat mengunduh berkas ringkasan saat siap.'}
-          </div>
-        </section>
+        {/* AI Literature Summarizer */}
+        <AiSummarizerPanel
+          journalId={journal.id}
+          journalTitle={journal.title}
+          initialSummaries={summaries}
+        />
 
         {/* Peer Reviews & Ratings Section */}
         <ReviewSection

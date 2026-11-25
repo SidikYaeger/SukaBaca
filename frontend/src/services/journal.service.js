@@ -21,8 +21,20 @@ export const normalizeJournal = (j) => ({
   fileName: j.fileName || null,
   rating: Number(j.averageRating) || 0,
   reviewCount: Number(j.reviewCount) || 0,
+  ratingDistribution: j.ratingDistribution || { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 },
   isSaved: Boolean(j.isSaved)
 });
+
+const normalizeSummary = (item) => {
+  if (!item || typeof item !== 'object') return null;
+  return {
+    ...item,
+    ringkasanId: item.ringkasanId ?? item.id ?? null,
+    model: item.model || 'Basic SukaBaca AI',
+    content: item.isi || item.content || '',
+    tanggalDibuat: item.tanggalDibuat || null
+  };
+};
 
 export const journalService = {
   async getAllJournals() {
@@ -42,7 +54,8 @@ export const journalService = {
     });
     return {
       journals: Array.isArray(data.journals) ? data.journals.map(normalizeJournal) : [],
-      yearCounts: data.yearCounts || {}
+      yearCounts: data.yearCounts || {},
+      ratingSummary: data.ratingSummary || null
     };
   },
 
@@ -82,20 +95,44 @@ export const journalService = {
     return API_ENDPOINTS.JOURNAL_FILE(id);
   },
 
-  async getAiSummary(id) {
+  async getAiSummaries(id) {
     try {
       const data = await request(API_ENDPOINTS.JOURNAL_SUMMARY(id));
-      if (Array.isArray(data) && data.length > 0) {
-        const latest = data[data.length - 1];
-        return { ...latest, content: latest.isi || latest.content || '' };
+      if (Array.isArray(data)) {
+        return data
+          .map(normalizeSummary)
+          .filter(Boolean)
+          .sort((a, b) => {
+            const ta = a.tanggalDibuat ? new Date(a.tanggalDibuat).getTime() : 0;
+            const tb = b.tanggalDibuat ? new Date(b.tanggalDibuat).getTime() : 0;
+            return tb - ta;
+          });
       }
-      if (data && typeof data === 'object') {
-        return { ...data, content: data.isi || data.content || '' };
-      }
-      return null;
+      const single = normalizeSummary(data);
+      return single ? [single] : [];
     } catch {
-      return null;
+      return [];
     }
+  },
+
+  async getAiSummary(id) {
+    const list = await this.getAiSummaries(id);
+    return list.length > 0 ? list[0] : null;
+  },
+
+  async startAiSummary(id, model) {
+    return await request(API_ENDPOINTS.JOURNAL_SUMMARY_START(id), {
+      method: 'POST',
+      body: JSON.stringify(model ? { model } : {})
+    });
+  },
+
+  async getSummarizeJob(jobId) {
+    const data = await request(API_ENDPOINTS.JOURNAL_SUMMARY_JOB(jobId));
+    if (data && data.ringkasan) {
+      return { ...data, ringkasan: normalizeSummary(data.ringkasan) };
+    }
+    return data;
   },
 
   async generateAiSummary(id, model) {
@@ -103,7 +140,7 @@ export const journalService = {
       method: 'POST',
       body: JSON.stringify(model ? { model } : {})
     });
-    return { ...data, content: data?.isi || data?.content || '' };
+    return normalizeSummary(data);
   },
 
   async downloadSummaryPdf(id, title = 'ringkasan') {
