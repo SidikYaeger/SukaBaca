@@ -22,7 +22,7 @@ import UpgradeModal from '../UpgradeModal';
 const STAGE_META = {
   QUEUED: { label: 'Antrean', percent: 12 },
   EXTRACTING: { label: 'Ekstraksi Teks', percent: 28 },
-  SUMMARIZING: { label: 'Analisis & Ringkasan AI', percent: 65 },
+  SUMMARIZING: { label: 'Analisis & Ringkasan AI', percent: 45 },
   SYNTHESIZING: { label: 'Sintesis Akhir', percent: 88 },
   DONE: { label: 'Selesai', percent: 100 },
   ERROR: { label: 'Gagal', percent: 100 }
@@ -139,6 +139,7 @@ export default function AiSummarizerPanel({
 
   const [jobState, setJobState] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
   const [needsUpgrade, setNeedsUpgrade] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -162,6 +163,17 @@ export default function AiSummarizerPanel({
       clearPollTimer();
     };
   }, [clearPollTimer]);
+
+  useEffect(() => {
+    if (!isGenerating) {
+      setElapsedSeconds(0);
+      return undefined;
+    }
+    const timer = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isGenerating]);
 
   useEffect(() => {
     if (Array.isArray(initialSummaries)) {
@@ -313,9 +325,20 @@ export default function AiSummarizerPanel({
   const computeProgressPercent = () => {
     if (!jobState) return 0;
     const base = STAGE_META[jobState.stage]?.percent ?? 20;
-    if (jobState.stage === 'SUMMARIZING' && jobState.totalParts > 1) {
-      const ratio = Math.min(1, (jobState.currentPart || 1) / jobState.totalParts);
-      return Math.round(35 + ratio * 48);
+    if (jobState.stage === 'SUMMARIZING') {
+      if (jobState.totalParts > 1) {
+        const ratio = Math.min(1, (jobState.currentPart || 1) / jobState.totalParts);
+        return Math.round(35 + ratio * 48);
+      }
+      // Smoothly advance during single-part AI streaming so the bar reflects live progress
+      const msg = String(jobState.message || '');
+      const charMatch = msg.match(/\((\d+)\s+karakter\)/i);
+      if (charMatch) {
+        const chars = Number(charMatch[1]) || 0;
+        return Math.min(94, Math.round(68 + Math.min(chars, 1600) / 62));
+      }
+      const timeBoost = Math.min(35, Math.floor(elapsedSeconds * 1.4));
+      return Math.min(82, base + timeBoost);
     }
     return base;
   };
@@ -492,7 +515,9 @@ export default function AiSummarizerPanel({
                 </span>
               )}
             </span>
-            <span className="font-mono font-bold text-[#0F172A] tabular-nums">{progressPercent}%</span>
+            <span className="font-mono font-bold text-[#0F172A] tabular-nums">
+              {progressPercent}%
+            </span>
           </div>
 
           <div className="w-full h-2 bg-[#E2E8F0] overflow-hidden">

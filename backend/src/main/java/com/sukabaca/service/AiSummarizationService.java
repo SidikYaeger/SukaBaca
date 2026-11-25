@@ -274,7 +274,7 @@ public class AiSummarizationService {
             ));
             body.put("temperature", selection.isPro() ? 0.25 : 0.3);
             body.put("top_p", 0.95);
-            body.put("max_tokens", selection.isPro() ? 16384 : 1024);
+            body.put("max_tokens", selection.isPro() ? 16384 : 4096);
             body.put("stream", true);
             if (selection.isPro()) {
                 body.put("chat_template_kwargs", Map.of("enable_thinking", true));
