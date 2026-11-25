@@ -12,7 +12,6 @@ import Header from '../components/layout/Header';
 import SidebarDrawer from '../components/layout/SidebarDrawer';
 import JournalCard from '../components/journal/JournalCard';
 import JournalFilterSidebar from '../components/journal/JournalFilterSidebar';
-import RatingSummaryCard from '../components/journal/RatingSummaryCard';
 import { Skeleton } from '../components/common/UIPrimitives';
 import { journalService } from '../services/journal.service';
 import { SORT_OPTIONS } from '../config/app.config';
@@ -28,7 +27,6 @@ export default function SearchPage() {
   const [activeQuery, setActiveQuery] = useState(initialQuery);
   const [journals, setJournals] = useState([]);
   const [yearCounts, setYearCounts] = useState({});
-  const [ratingSummary, setRatingSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchError, setSearchError] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -118,11 +116,9 @@ export default function SearchPage() {
 
       setJournals(list);
       setYearCounts(result.yearCounts || {});
-      setRatingSummary(result.ratingSummary || null);
     } catch (err) {
       setSearchError(err.message || 'Gagal memuat hasil pencarian jurnal.');
       setJournals([]);
-      setRatingSummary(null);
     } finally {
       setLoading(false);
     }
@@ -312,18 +308,6 @@ export default function SearchPage() {
                 </button>
               )}
             </div>
-
-            {/* Rating Summary for Current Search Results */}
-            {!loading && !searchError && (journals.length > 0 || minRating) && (
-              <RatingSummaryCard
-                journals={journals}
-                serverSummary={ratingSummary}
-                useClientFallback={savedOnly && isAuthenticated}
-                minRating={minRating}
-                onSelectMinRating={setMinRating}
-                onOpenJournal={(id) => navigate(`/article/${id}`)}
-              />
-            )}
 
             {/* Error Message */}
             {searchError && (
