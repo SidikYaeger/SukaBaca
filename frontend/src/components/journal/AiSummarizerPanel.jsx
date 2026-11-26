@@ -42,8 +42,17 @@ function renderInlineBold(text) {
   });
 }
 
+function decodeHtmlEntities(str) {
+  return String(str || '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
 function FormattedSummary({ content }) {
-  const lines = String(content || '').split(/\r?\n/);
+  const lines = decodeHtmlEntities(content).split(/\r?\n/);
   const blocks = [];
   let listItems = [];
 

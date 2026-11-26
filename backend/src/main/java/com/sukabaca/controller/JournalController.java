@@ -228,17 +228,21 @@ public class JournalController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Abstrak atau teks naskah minimal 30 karakter");
         }
 
-        String content = !providedContent.isEmpty()
-                ? providedContent
-                : (!providedAbstract.isEmpty()
-                        ? providedAbstract
-                        : (!cleanExtracted.isEmpty()
-                                ? cleanExtracted
-                                : "Dokumen jurnal akademik \"" + title + "\" oleh " + author + "."));
+        String content;
+        if (fileBytes != null && !cleanExtracted.isEmpty()) {
+            content = cleanExtracted;
+        } else if (!providedContent.isEmpty()) {
+            content = providedContent;
+        } else if (!providedAbstract.isEmpty()) {
+            content = providedAbstract;
+        } else {
+            content = "Dokumen jurnal akademik \"" + title + "\" oleh " + author + ".";
+        }
 
-        String abstractCandidate = !providedAbstract.isEmpty()
-                ? providedAbstract
-                : (!providedContent.isEmpty() ? providedContent : content);
+        String userTypedSummary = !providedAbstract.isEmpty() ? providedAbstract : providedContent;
+        String abstractCandidate = !userTypedSummary.isEmpty()
+                ? userTypedSummary
+                : buildDefaultAbstractExcerpt(content, 850);
         String abstractText = abstractCandidate.length() > 10000
                 ? abstractCandidate.substring(0, 10000)
                 : abstractCandidate;
@@ -373,6 +377,52 @@ public class JournalController {
         } catch (IOException e) {
             throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Gagal membaca berkas jurnal");
         }
+    }
+
+    @GetMapping("/{id}/docx-preview")
+    public ResponseEntity<?> getDocxPreview(@PathVariable Long id) {
+        Journal journal = journalRepository.findById(id)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Jurnal tidak ditemukan"));
+        String ext = extensionOf(journal.getFileName());
+        if (ext == null) {
+            return ResponseEntity.notFound().build();
+        }
+        Path path = UPLOAD_DIR.resolve(id + "." + ext).normalize();
+        if (!path.startsWith(UPLOAD_DIR) || !Files.isRegularFile(path)) {
+            return ResponseEntity.notFound().build();
+        }
+        try {
+            byte[] bytes = Files.readAllBytes(path);
+            List<Map<String, Object>> blocks = "docx".equals(ext)
+                    ? documentTextExtractor.extractDocxPreviewBlocks(bytes)
+                    : Collections.emptyList();
+            String rawText = documentTextExtractor.extractTextFromBytes(ext, bytes);
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("id", journal.getId());
+            out.put("title", journal.getTitle());
+            out.put("fileName", journal.getFileName());
+            out.put("formatFile", ext.toUpperCase());
+            out.put("blocks", blocks);
+            out.put("text", rawText != null ? rawText : "");
+            return ResponseEntity.ok(out);
+        } catch (IOException e) {
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Gagal membaca pratinjau berkas DOCX");
+        }
+    }
+
+    private static String buildDefaultAbstractExcerpt(String text, int maxChars) {
+        if (text == null) return "";
+        String cleaned = text.trim();
+        if (cleaned.length() <= maxChars) return cleaned;
+        int dot = cleaned.lastIndexOf(". ", maxChars);
+        if (dot >= maxChars / 2) {
+            return cleaned.substring(0, dot + 1).trim();
+        }
+        int space = cleaned.lastIndexOf(' ', maxChars);
+        if (space >= maxChars / 2) {
+            return cleaned.substring(0, space).trim() + "...";
+        }
+        return cleaned.substring(0, maxChars).trim() + "...";
     }
 
     @PostMapping("/{id}/summarize/start")

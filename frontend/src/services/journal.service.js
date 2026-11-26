@@ -59,15 +59,19 @@ export const journalService = {
     };
   },
 
-  async uploadJournal({ title, author, year, category, formatFile, content, file }) {
+  async uploadJournal({ title, author, year, category, formatFile, abstract, content, file }) {
     const formData = new FormData();
     formData.append('title', title);
     if (author) formData.append('author', author);
     if (year) formData.append('publishDate', String(year));
     if (category) formData.append('category', category);
     if (formatFile) formData.append('formatFile', formatFile);
-    if (content) formData.append('content', content);
-    if (file) formData.append('file', file);
+    if (file) {
+      if (abstract || content) formData.append('abstract', abstract || content);
+      formData.append('file', file);
+    } else if (content || abstract) {
+      formData.append('content', content || abstract);
+    }
 
     const data = await request(API_ENDPOINTS.JOURNAL_UPLOAD, {
       method: 'POST',
@@ -93,6 +97,10 @@ export const journalService = {
 
   getViewerUrl(id) {
     return API_ENDPOINTS.JOURNAL_FILE(id);
+  },
+
+  async getDocxPreview(id) {
+    return await request(API_ENDPOINTS.JOURNAL_DOCX_PREVIEW(id));
   },
 
   async getAiSummaries(id) {

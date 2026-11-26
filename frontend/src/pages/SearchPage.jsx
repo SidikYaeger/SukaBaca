@@ -221,55 +221,60 @@ export default function SearchPage() {
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-8 py-6 w-full space-y-6">
         
         {/* Top Search Controls Bar */}
-        <section className="p-4 sm:p-5 space-y-3 bg-[#F8FAFC] border border-[#CBD5E1] shadow-hard-sm">
-          <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="dokmeh-search-container w-full flex-1">
-              <SearchIcon size={18} className="text-[#64748B] shrink-0 mr-1.5" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari judul jurnal, topik riset, atau nama penulis..."
-                className="dokmeh-search-input"
-              />
-              {searchQuery && (
+        <section className="p-4 sm:p-5 bg-[#F8FAFC] border border-[#CBD5E1] shadow-hard-sm">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <form onSubmit={handleSearchSubmit} className="w-full flex-1">
+              <div className="dokmeh-search-container w-full">
+                <SearchIcon size={18} className="text-[#64748B] shrink-0 mr-1.5" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari judul jurnal, topik riset, atau nama penulis..."
+                  className="dokmeh-search-input"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={handleClearQuery}
+                    className="px-2 text-[#94A3B8] hover:text-[#0F172A] transition-colors"
+                    title="Clear"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
                 <button
-                  type="button"
-                  onClick={handleClearQuery}
-                  className="px-2 text-[#94A3B8] hover:text-[#0F172A] transition-colors"
-                  title="Clear"
+                  type="submit"
+                  className="dokmeh-btn-primary !py-2 !px-5 text-xs sm:text-sm ml-1"
                 >
-                  <X size={16} />
+                  <span>Search</span>
                 </button>
-              )}
-              <button
-                type="submit"
-                className="dokmeh-btn-primary !py-2 !px-5 text-xs sm:text-sm ml-1"
-              >
-                <span>Search</span>
-              </button>
-            </div>
-          </form>
+              </div>
+            </form>
 
-          {/* Sub-bar with filter toggle and sort controls */}
-          <div className="flex flex-wrap items-center justify-end text-xs gap-3 pt-1 border-t border-[#E2E8F0]">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
               {/* Mobile Filter Toggle */}
               <button
                 type="button"
                 onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
-                className="lg:hidden dokmeh-btn-secondary !py-1 !px-2.5 text-xs flex items-center gap-1.5"
+                className="lg:hidden dokmeh-btn-secondary h-[46px] !py-2 !px-3.5 text-xs flex items-center gap-1.5 shrink-0"
               >
-                <SlidersHorizontal size={13} />
+                <SlidersHorizontal size={14} />
                 <span>Filters</span>
               </button>
 
-              <div className="flex items-center gap-2">
-                <span className="text-[#64748B] font-mono text-[11px] uppercase">Sort:</span>
+              <div className="flex items-center gap-2 bg-[#FFFFFF] border-[1.5px] border-[#0F172A] shadow-[3px_3px_0px_#0F172A] px-3 h-[46px] flex-1 sm:flex-initial">
+                <label
+                  htmlFor="search-sort-select"
+                  className="text-[#64748B] font-mono text-[11px] uppercase whitespace-nowrap select-none"
+                >
+                  Sort:
+                </label>
                 <select
+                  id="search-sort-select"
                   value={sortOption}
                   onChange={(e) => setSortOption(e.target.value)}
-                  className="dokmeh-select"
+                  className="bg-transparent text-xs font-semibold text-[#0F172A] focus:outline-none cursor-pointer w-full sm:w-auto pr-1"
                 >
                   {SORT_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>

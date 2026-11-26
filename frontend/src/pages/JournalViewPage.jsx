@@ -10,6 +10,7 @@ export default function JournalViewPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [journal, setJournal] = useState(null);
+  const [docxPreview, setDocxPreview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showSummarizer, setShowSummarizer] = useState(false);
 
@@ -18,7 +19,12 @@ export default function JournalViewPage() {
     const load = async () => {
       try {
         const item = await journalService.getJournalById(id);
-        if (isMounted) setJournal(item);
+        if (!isMounted) return;
+        setJournal(item);
+        if (item?.fileName && ['DOCX', 'DOC', 'TXT'].includes((item.formatFile || '').toUpperCase())) {
+          const preview = await journalService.getDocxPreview(id).catch(() => null);
+          if (isMounted) setDocxPreview(preview);
+        }
       } catch {
         if (isMounted) setJournal(null);
       } finally {
@@ -30,6 +36,7 @@ export default function JournalViewPage() {
   }, [id]);
 
   const fileUrl = journal?.fileName ? journalService.getViewerUrl(id) : null;
+  const isDocxOrTxt = ['DOCX', 'DOC', 'TXT'].includes((journal?.formatFile || '').toUpperCase());
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FFFFFF] text-[#334155] font-sans selection:bg-[#0593C6] selection:text-white">
@@ -89,12 +96,76 @@ export default function JournalViewPage() {
               <Skeleton className="w-full h-8" />
               <Skeleton className="w-full h-full min-h-[500px]" />
             </div>
-          ) : fileUrl && !['DOCX', 'DOC'].includes((journal?.formatFile || '').toUpperCase()) ? (
+          ) : fileUrl && !isDocxOrTxt ? (
             <iframe
               src={fileUrl}
               title={journal?.title}
               className="w-full h-full flex-1 border-0"
             />
+          ) : fileUrl && isDocxOrTxt && docxPreview ? (
+            <div className="flex-1 bg-[#F1F5F9] p-4 sm:p-8 overflow-y-auto">
+              <div className="max-w-3xl mx-auto bg-[#FFFFFF] border border-[#CBD5E1] shadow-hard-sm p-6 sm:p-12 space-y-4">
+                <div className="pb-3 mb-4 border-b border-[#E2E8F0] flex items-center justify-between text-xs text-[#64748B] font-mono">
+                  <span className="truncate">{docxPreview.fileName || journal.fileName}</span>
+                  <span className="px-2 py-0.5 bg-[#F8FAFC] border border-[#CBD5E1] text-[#0F172A] font-bold">
+                    {docxPreview.formatFile || journal.formatFile}
+                  </span>
+                </div>
+                {Array.isArray(docxPreview.blocks) && docxPreview.blocks.length > 0 ? (
+                  docxPreview.blocks.map((block, idx) => {
+                    if (block.type === 'table') {
+                      return (
+                        <div key={idx} className="overflow-x-auto my-4">
+                          <table className="w-full border-collapse text-xs sm:text-sm border border-[#CBD5E1]">
+                            <tbody>
+                              {(block.rows || []).map((row, rIdx) => (
+                                <tr key={rIdx} className={rIdx === 0 ? 'bg-[#F8FAFC] font-semibold' : ''}>
+                                  {row.map((cell, cIdx) => (
+                                    <td key={cIdx} className="border border-[#CBD5E1] px-3 py-2 align-top text-[#1E293B]">
+                                      {cell}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    }
+                    const renderRuns = (runs) =>
+                      (runs || []).map((r, rIdx) => {
+                        let node = r.text;
+                        if (r.bold) node = <strong key={`b-${rIdx}`}>{node}</strong>;
+                        if (r.italic) node = <em key={`i-${rIdx}`}>{node}</em>;
+                        return <React.Fragment key={rIdx}>{node}</React.Fragment>;
+                      });
+                    if (block.type === 'h1') {
+                      return (
+                        <h1 key={idx} className="text-xl sm:text-2xl font-extrabold text-[#0F172A] pt-2 leading-snug">
+                          {renderRuns(block.runs)}
+                        </h1>
+                      );
+                    }
+                    if (block.type === 'h2') {
+                      return (
+                        <h2 key={idx} className="text-base sm:text-lg font-bold text-[#0F172A] pt-3 leading-snug">
+                          {renderRuns(block.runs)}
+                        </h2>
+                      );
+                    }
+                    return (
+                      <p key={idx} className="text-sm sm:text-base text-[#1E293B] leading-relaxed">
+                        {renderRuns(block.runs)}
+                      </p>
+                    );
+                  })
+                ) : (
+                  <div className="text-sm sm:text-base text-[#1E293B] leading-relaxed whitespace-pre-wrap">
+                    {docxPreview.text || journal.content}
+                  </div>
+                )}
+              </div>
+            </div>
           ) : journal?.content ? (
             <div className="flex-1 p-6 sm:p-10 overflow-y-auto space-y-4">
               <div className="text-sm sm:text-base text-[#1E293B] leading-relaxed whitespace-pre-wrap max-w-3xl mx-auto">

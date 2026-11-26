@@ -102,9 +102,9 @@ public class AuthController {
                     "message", "Username harus 3–50 karakter dan hanya huruf, angka, titik, garis bawah, atau tanda hubung"
             ));
         }
-        if (password == null || password.length() < 6 || password.length() > 100) {
+        if (password == null || password.length() < 5 || password.length() > 100) {
             return ResponseEntity.badRequest().body(Map.of(
-                    "message", "Password harus terdiri dari 6–100 karakter"
+                    "message", "Password harus terdiri dari 5–100 karakter"
             ));
         }
 

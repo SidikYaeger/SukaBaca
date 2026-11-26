@@ -22,8 +22,8 @@ export default function RegisterPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setErrorMessage('Kata sandi minimal harus 6 karakter.');
+    if (password.length < 5) {
+      setErrorMessage('Kata sandi minimal harus 5 karakter.');
       return;
     }
 

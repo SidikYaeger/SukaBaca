@@ -5,7 +5,7 @@ import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.*;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
@@ -14,6 +14,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class DocumentTextExtractor {
@@ -90,6 +94,79 @@ public class DocumentTextExtractor {
             return null;
         }
         return "";
+    }
+
+    public List<Map<String, Object>> extractDocxPreviewBlocks(byte[] bytes) {
+        List<Map<String, Object>> blocks = new ArrayList<>();
+        if (bytes == null || bytes.length == 0) {
+            return blocks;
+        }
+        try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(bytes))) {
+            for (IBodyElement element : doc.getBodyElements()) {
+                if (element instanceof XWPFParagraph para) {
+                    String fullText = para.getText();
+                    if (fullText == null || fullText.isBlank()) {
+                        continue;
+                    }
+                    String style = para.getStyle() != null ? para.getStyle().toLowerCase() : "";
+                    boolean isHeading1 = style.contains("heading1") || style.contains("title") || style.equals("1");
+                    boolean isHeading2 = !isHeading1 && (style.contains("heading") || style.contains("subtitle"));
+
+                    List<Map<String, Object>> runsOut = new ArrayList<>();
+                    List<XWPFRun> runs = para.getRuns();
+                    if (runs != null && !runs.isEmpty()) {
+                        for (XWPFRun run : runs) {
+                            String rt = run.text();
+                            if (rt == null || rt.isEmpty()) continue;
+                            Map<String, Object> runMap = new LinkedHashMap<>();
+                            runMap.put("text", rt);
+                            runMap.put("bold", run.isBold());
+                            runMap.put("italic", run.isItalic());
+                            runsOut.add(runMap);
+                        }
+                    }
+                    if (runsOut.isEmpty()) {
+                        Map<String, Object> fallbackRun = new LinkedHashMap<>();
+                        fallbackRun.put("text", fullText);
+                        fallbackRun.put("bold", false);
+                        fallbackRun.put("italic", false);
+                        runsOut.add(fallbackRun);
+                    }
+
+                    // Promote short all-bold standalone lines as section subheadings
+                    boolean allRunsBold = runsOut.stream().allMatch(r -> Boolean.TRUE.equals(r.get("bold")));
+                    if (!isHeading1 && !isHeading2 && allRunsBold && fullText.trim().length() <= 110) {
+                        isHeading2 = true;
+                    }
+
+                    Map<String, Object> block = new LinkedHashMap<>();
+                    block.put("type", isHeading1 ? "h1" : (isHeading2 ? "h2" : "p"));
+                    block.put("text", fullText.trim());
+                    block.put("runs", runsOut);
+                    blocks.add(block);
+                } else if (element instanceof XWPFTable table) {
+                    List<List<String>> rowsOut = new ArrayList<>();
+                    for (XWPFTableRow row : table.getRows()) {
+                        List<String> cellsOut = new ArrayList<>();
+                        for (XWPFTableCell cell : row.getTableCells()) {
+                            cellsOut.add(cell.getText() != null ? cell.getText().trim() : "");
+                        }
+                        if (cellsOut.stream().anyMatch(c -> !c.isEmpty())) {
+                            rowsOut.add(cellsOut);
+                        }
+                    }
+                    if (!rowsOut.isEmpty()) {
+                        Map<String, Object> tableBlock = new LinkedHashMap<>();
+                        tableBlock.put("type", "table");
+                        tableBlock.put("rows", rowsOut);
+                        blocks.add(tableBlock);
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            return blocks;
+        }
+        return blocks;
     }
 
     private static String safe(String val) {

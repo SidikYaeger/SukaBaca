@@ -91,8 +91,15 @@ export default function UpgradeModal({ onClose }) {
       event.preventDefault();
       closeAnimated();
     };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeAnimated();
+      }
+    };
     dialog.addEventListener('close', handleNativeClose);
     dialog.addEventListener('cancel', handleCancel);
+    window.addEventListener('keydown', handleKeyDown);
 
     // Fallback light-dismiss for browsers lacking <dialog closedby="any">
     let removeFallback = null;
@@ -122,6 +129,7 @@ export default function UpgradeModal({ onClose }) {
       active = false;
       dialog.removeEventListener('close', handleNativeClose);
       dialog.removeEventListener('cancel', handleCancel);
+      window.removeEventListener('keydown', handleKeyDown);
       removeFallback?.();
     };
   }, [closeAnimated]);

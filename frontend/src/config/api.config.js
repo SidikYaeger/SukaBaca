@@ -18,6 +18,7 @@ export const API_ENDPOINTS = {
   JOURNAL_UPLOAD: `${API_BASE_URL}/journals/upload`,
   JOURNAL_DOWNLOAD: (id) => `${API_BASE_URL}/journals/${id}/download`,
   JOURNAL_FILE: (id) => `${API_BASE_URL}/journals/${id}/file`,
+  JOURNAL_DOCX_PREVIEW: (id) => `${API_BASE_URL}/journals/${id}/docx-preview`,
 
   // AI Summaries
   JOURNAL_SUMMARY: (id) => `${API_BASE_URL}/journals/${id}/ringkasan`,
